@@ -5,7 +5,10 @@ asjp_model = Model('sca')
 
 GAP_PENALTY = -3
 METATHESIS_PENALTY = -1.5
+METATHESIS_PENALTY_EXTEND = -0
 FUSION_PENALTY = -4
+
+MAX_METATHESIS_LENGTH = 3
 
 OP_MATCH = "M"       # Match / Mismatch
 OP_DELETION = "D"    # Deletion (Gap in word 2)
@@ -30,13 +33,17 @@ def calculate_best(matrix: list[list[float]], seq1: str, seq2: str, i: int, j: i
     if j >= 2:
         expansion_score = score_expansion(matrix[i - 1][j - 2], seq2[i], seq1[j - 1], seq1[j])
 
+    '''
     metathesis_score = float('-inf')
     if i >= 2 and j >= 2:
         metathesis_score = score_metathesis(matrix[i - 2][j - 2], seq1[j - 1], seq1[j], seq2[i - 1], seq2[i])
+    '''
+    metathesis_score, metathesis_length = score_syllable_metathesis(seq1, seq2, matrix, i, j, MAX_METATHESIS_LENGTH)
+    metathesis_op = f"{OP_METATHESIS}_{metathesis_length}"
 
     options = [
         (direct_score, OP_MATCH),
-        (metathesis_score, OP_METATHESIS),
+        (metathesis_score, metathesis_op),
         (contraction_score, OP_CONTRACTION),
         (expansion_score, OP_EXPANSION),
         (deletion_score, OP_DELETION),
@@ -76,6 +83,43 @@ def score_metathesis(base_score: float, char1_prev: str, char1_curr: str, char2_
     cross_match_2 = get_lingpy_score(char1_curr, char2_prev)
     return base_score + cross_match_1 + cross_match_2 + METATHESIS_PENALTY
 
+def score_syllable_metathesis(seq1: str, seq2: str, alignment: list[list[float]], i: int, j: int, max_length: int):
+
+    best_score = float('-inf')
+    best_syllable_length = 0
+
+    for current_syllable_length in range(1, max_length + 1):
+
+        if i - current_syllable_length * 2 < 0 or j - current_syllable_length * 2 < 0:
+            break
+
+        word1_syl1 = seq1[j - 2 * current_syllable_length + 1: j - current_syllable_length + 1]
+        word1_syl2 = seq1[j - current_syllable_length + 1: j + 1]
+
+        word2_syl1 = seq2[i - 2 * current_syllable_length + 1: i - current_syllable_length + 1]
+        word2_syl2 = seq2[i - current_syllable_length + 1: i + 1]
+
+        origin_score = alignment[i - current_syllable_length * 2][j - current_syllable_length * 2]
+
+        unchanged_match_score_syl1 = get_lingpy_string_score(word1_syl1, word2_syl1)
+        unchanged_match_score_syl2 = get_lingpy_string_score(word1_syl2, word2_syl2)
+
+        swapped_match_score_syl1 = get_lingpy_string_score(word1_syl1, word2_syl2)
+        swapped_match_score_syl2 = get_lingpy_string_score(word1_syl2, word2_syl1)
+
+        if unchanged_match_score_syl1 + unchanged_match_score_syl2 > swapped_match_score_syl1 + swapped_match_score_syl2:
+            continue
+
+        swap_score = origin_score + swapped_match_score_syl1 + swapped_match_score_syl2
+        penalized_score = swap_score + METATHESIS_PENALTY + (current_syllable_length-1)*METATHESIS_PENALTY_EXTEND
+
+        if penalized_score > best_score:
+            best_score = penalized_score
+            best_syllable_length = current_syllable_length
+
+    return best_score, best_syllable_length
+
+
 def get_lingpy_score(char1: str, char2: str):
     if char1 == char2:
         return 2.5
@@ -96,6 +140,15 @@ def get_lingpy_score(char1: str, char2: str):
 
     else:
         return -4.0
+
+def get_lingpy_string_score(str1: str, str2: str):
+    accu = 0
+
+    for i in range (0, min(len(str1), len(str2))):
+        accu += get_lingpy_score(str1[i], str2[i])
+
+    return accu
+
 
 def get_relative_score(raw_score: float, seq1: str, seq2: str):
     word_len = max(len(seq1)-1, len(seq2)-1)

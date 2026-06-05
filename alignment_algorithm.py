@@ -95,7 +95,7 @@ def print_matrix(matrix, seq1: str, seq2: str):
         print()
 
 
-def print_alignment(trace_matrix: list[list[str]], seq1: str, seq2: str):
+def print_alignment(traceback: list[list[str]], seq1: str, seq2: str):
     i = len(seq2) - 1
     j = len(seq1) - 1
 
@@ -104,7 +104,7 @@ def print_alignment(trace_matrix: list[list[str]], seq1: str, seq2: str):
     aln_seq2 = []
 
     while i > 0 or j > 0:
-        op = trace_matrix[i][j]
+        op = traceback[i][j]
 
         if op == "M":
             char1 = seq1[j]
@@ -141,12 +141,23 @@ def print_alignment(trace_matrix: list[list[str]], seq1: str, seq2: str):
             i -= 1
             j -= 2
 
-        elif op == "S":
-            aln_seq1.extend([seq1[j], seq1[j - 1]])
-            aln_seq2.extend([seq2[i], seq2[i - 1]])
-            aln_mid.extend(["⟨", "⟩"])
-            i -= 2
-            j -= 2
+        elif op.startswith("S"):
+            swap_length = int(op.split("_")[1])
+
+            # Append letters in swap area from original strings in reverse
+            aln_seq1.extend(seq1[j - swap_length*2 + 1 : j+1][::-1])
+            aln_seq2.extend(seq2[i - swap_length*2 + 1 : i+1][::-1])
+
+            for k in range(1, swap_length * 2 + 1):
+                if k <= swap_length:
+                    aln_mid.append("⟨")
+                elif k >= swap_length+1:
+                    aln_mid.append("⟩")
+                else:
+                    aln_mid.append(" ")
+
+            i -= swap_length*2
+            j -= swap_length*2
 
         else:
             break

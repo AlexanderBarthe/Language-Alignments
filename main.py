@@ -1,10 +1,23 @@
 import alignment_algorithm
-import language_input
 import match_evaluator
-import pycldf
 
 def main():
 
+    seq1 = 'XQWERTZX'
+    seq2 = 'XRTZQWEX'
+
+    score, fs_i, fs_j, matrix, traceback = match_evaluator.evaluate_single(seq1, seq2)
+
+    alignment_algorithm.print_matrix(matrix, "-" + seq1, "-" + seq2)
+    print()
+    alignment_algorithm.print_matrix(traceback, "-" + seq1, "-" + seq2)
+    print()
+    alignment_algorithm.print_alignment(traceback, "-" + seq1, "-" + seq2)
+    print()
+
+    print(score)
+
+    '''
     ds = pycldf.Dataset.from_metadata("languages/blumpanotacana/cldf/cldf-metadata.json")
 
     lang1_name = "Shipibo"
@@ -17,7 +30,7 @@ def main():
 
     if word_from_lang1 and all_words_from_lang2:
         find_best_match(word_from_lang1, all_words_from_lang2)
-
+    '''
 
 def find_best_match(word_from_lang1, all_words_from_lang2):
     best_match, best_score, best_alignment, best_traceback, comparisons = match_evaluator.find_best_match(

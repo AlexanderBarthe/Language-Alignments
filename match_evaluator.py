@@ -36,12 +36,3 @@ def find_best_match(seq1: str, match_partners: list[str]):
 
 
 
-
-
-
-
-
-
-
-
-
