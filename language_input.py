@@ -1,4 +1,12 @@
+import random
+
 from pycldf import Dataset
+from typing import NamedTuple
+
+class WordTuple(NamedTuple):
+    language: str
+    concept: str
+    form: str
 
 def find_language_id(dataset: Dataset, language_name: str):
     for lang in dataset.objects('LanguageTable'):
@@ -47,3 +55,48 @@ def extract_segments(form):
         return "".join(form.cldf.segments).replace("+", "").replace("-", "")
     else:
         return form.cldf.form
+
+
+def get_all_words_as_tuples(dataset: Dataset, sample_ratio: float = 1.0, seed: int = 42) -> list[WordTuple]:
+
+    all_languages = list(dataset.objects('LanguageTable'))
+
+    # Select subset of all languages
+    if sample_ratio < 1.0:
+        random.seed(seed)
+
+        num_to_keep = int(len(all_languages) * sample_ratio)
+
+        num_to_keep = max(1, num_to_keep)
+
+        selected_languages = random.sample(all_languages, num_to_keep)
+    else:
+        selected_languages = all_languages
+
+    lang_cache = {}
+    for lang in selected_languages:
+        lang_cache[lang.id] = lang.cldf.name if lang.cldf.name else lang.id
+
+    concept_cache = {}
+    for param in dataset.objects('ParameterTable'):
+        concept_cache[param.id] = param.cldf.name if param.cldf.name else param.id
+
+    all_word_tuples = []
+
+    for form in dataset.objects('FormTable'):
+        if form.cldf.languageReference not in lang_cache:
+            continue
+
+        lang_name = lang_cache[form.cldf.languageReference]
+        concept_name = concept_cache.get(form.cldf.parameterReference, "Unknown_Concept")
+
+        word_form = extract_segments(form)
+
+        if word_form:
+            all_word_tuples.append(WordTuple(
+                language=lang_name,
+                concept=concept_name,
+                form=word_form
+            ))
+
+    return all_word_tuples

@@ -1,21 +1,12 @@
+import pycldf
 import alignment_algorithm
+import clustering
+import language_input
 import match_evaluator
 
 def main():
 
-    seq1 = 'XQWERTZX'
-    seq2 = 'XRTZQWEX'
-
-    score, fs_i, fs_j, matrix, traceback = match_evaluator.evaluate_single(seq1, seq2)
-
-    alignment_algorithm.print_matrix(matrix, "-" + seq1, "-" + seq2)
-    print()
-    alignment_algorithm.print_matrix(traceback, "-" + seq1, "-" + seq2)
-    print()
-    alignment_algorithm.print_alignment(traceback, "-" + seq1, "-" + seq2)
-    print()
-
-    print(score)
+    cluster()
 
     '''
     ds = pycldf.Dataset.from_metadata("languages/blumpanotacana/cldf/cldf-metadata.json")
@@ -47,6 +38,21 @@ def find_best_match(word_from_lang1, all_words_from_lang2):
     print("Best match: ", best_match)
     print("Best Score: ", best_score)
     print("Comparisons: ", comparisons)
+
+def cluster():
+    ds = pycldf.Dataset.from_metadata("languages/blumpanotacana/cldf/cldf-metadata.json")
+
+    word_list = language_input.get_all_words_as_tuples(ds, 0.4, 9812)
+
+    df = match_evaluator.match_every(word_list)
+
+    cluster_frame, z = clustering.run_hierarchical_clustering(df)
+
+    impurity = clustering.calculate_avg_cluster_impurity(cluster_frame)
+
+    print("Impurity: ", impurity)
+    print("Cluster amount: ", clustering.get_cluster_count(cluster_frame))
+    print("Entries of cluster 1: ", clustering.get_entries_from_cluster(cluster_frame, 1))
 
 if __name__ == "__main__":
     main()
