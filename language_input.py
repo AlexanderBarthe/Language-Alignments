@@ -1,7 +1,8 @@
 import random
+from typing import NamedTuple
 
 from pycldf import Dataset
-from typing import NamedTuple
+
 
 class WordTuple(NamedTuple):
     language: str
@@ -57,7 +58,7 @@ def extract_segments(form):
         return form.cldf.form
 
 
-def get_all_words_as_tuples(dataset: Dataset, sample_ratio: float = 1.0, seed: int = 42) -> list[WordTuple]:
+def get_all_words_as_tuples(dataset: Dataset, sample_ratio: float = 1.0, seed: int = 101) -> list[WordTuple]:
 
     all_languages = list(dataset.objects('LanguageTable'))
 

@@ -1,14 +1,17 @@
 import pycldf
+
 import alignment_algorithm
 import clustering
 import language_input
 import match_evaluator
+import parameter_optimization
+
 
 def main():
 
-    cluster()
+    parameter_optimization.find_best_dbscan_params()
 
-    '''
+def find_best_match(word_from_lang1, all_words_from_lang2):
     ds = pycldf.Dataset.from_metadata("languages/blumpanotacana/cldf/cldf-metadata.json")
 
     lang1_name = "Shipibo"
@@ -19,11 +22,9 @@ def main():
 
     all_words_from_lang2 = language_input.get_all_words(ds, lang2_name)
 
-    if word_from_lang1 and all_words_from_lang2:
-        find_best_match(word_from_lang1, all_words_from_lang2)
-    '''
+    if not word_from_lang1 or not all_words_from_lang2:
+        return
 
-def find_best_match(word_from_lang1, all_words_from_lang2):
     best_match, best_score, best_alignment, best_traceback, comparisons = match_evaluator.find_best_match(
         word_from_lang1, all_words_from_lang2)
 
@@ -42,17 +43,20 @@ def find_best_match(word_from_lang1, all_words_from_lang2):
 def cluster():
     ds = pycldf.Dataset.from_metadata("languages/blumpanotacana/cldf/cldf-metadata.json")
 
-    word_list = language_input.get_all_words_as_tuples(ds, 0.4, 9812)
+    word_list = language_input.get_all_words_as_tuples(ds, 0.4, 101)
 
     df = match_evaluator.match_every(word_list)
 
-    cluster_frame, z = clustering.run_hierarchical_clustering(df)
+    cluster_frame, tree = clustering.run_hierarchical_clustering(df)
 
-    impurity = clustering.calculate_avg_cluster_impurity(cluster_frame)
+    impurity = clustering.calculate_cluster_impurity(cluster_frame)
 
     print("Impurity: ", impurity)
     print("Cluster amount: ", clustering.get_cluster_count(cluster_frame))
     print("Entries of cluster 1: ", clustering.get_entries_from_cluster(cluster_frame, 1))
+
+def optimize_align_params():
+    parameter_optimization.find_best_alignment_params()
 
 if __name__ == "__main__":
     main()

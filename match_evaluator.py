@@ -1,10 +1,10 @@
-import os
 from concurrent.futures import ProcessPoolExecutor
 
-import alignment_algorithm
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+
+import alignment_algorithm
 from language_input import WordTuple
 
 MAX_WORKERS = 10
@@ -12,11 +12,9 @@ MAX_WORKERS = 10
 def _align_worker(task):
     i, j, form_i, form_j = task
     score, _, _, _, _ = evaluate_single(form_i, form_j)
-    distance = score_to_distance(score)
-    return i, j, distance
+    return i, j, score
 
-def evaluate_single(seq1: str, seq2: str):
-
+def evaluate_single_semiglobally(seq1: str, seq2: str):
     fs_score, fs_i, fs_j, fs_matrix, fs_traceback = alignment_algorithm.align(seq1, seq2, True, False)
 
     fe_score, fe_i, fe_j, fe_matrix, fe_traceback = alignment_algorithm.align(seq1, seq2, False, True)
@@ -25,6 +23,9 @@ def evaluate_single(seq1: str, seq2: str):
         return fs_score, fs_i, fs_j, fs_matrix, fs_traceback
     else:
         return fe_score, fe_i, fe_j, fe_matrix, fe_traceback
+
+def evaluate_single(seq1: str, seq2: str):
+    return alignment_algorithm.align(seq1, seq2, False, False)
 
 def find_best_match(seq1: str, match_partners: list[str]):
 
@@ -52,7 +53,7 @@ def match_every(sequences: list[WordTuple]):
     filename = 'distances.dat'
     n = len(sequences)
     #matrix = np.zeros((n, n), dtype='float16')
-    matrix = np.memmap(filename, dtype='float32',
+    disk_score_matrix = np.memmap(filename, dtype='float32',
                            mode='w+', shape=(n, n))
 
     tasks = []
@@ -61,21 +62,25 @@ def match_every(sequences: list[WordTuple]):
             tasks.append((i, j, sequences[i].form, sequences[j].form))
 
     if not tasks:
-        return pd.DataFrame(matrix)
+        return pd.DataFrame(disk_score_matrix)
 
     with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
         iterator = executor.map(_align_worker, tasks, chunksize=1000)
         results = list(tqdm(iterator, total=len(tasks), desc="Calculate Alignments"))
 
-    for i, j, distance in results:
-        matrix[i, j] = distance
-        matrix[j, i] = distance
+    for i, j, score in results:
+        disk_score_matrix[i, j] = score
+        disk_score_matrix[j, i] = score
 
-    ram_matrix = np.array(matrix)
-    del matrix
+    ram_score_matrix = np.array(disk_score_matrix)
+    del disk_score_matrix
+
+    best_score = ram_score_matrix.max()
+
+    ram_distance_matrix = list(map(lambda x: score_to_distance(best_score, x), ram_score_matrix))
 
     multi_index = pd.MultiIndex.from_tuples(sequences, names=["Language", "Concept", "Form"])
-    return pd.DataFrame(ram_matrix, index=multi_index, columns=multi_index)
+    return pd.DataFrame(ram_distance_matrix, index=multi_index, columns=multi_index)
 
 
 def load_existing_matrix(filename: str, sequences: list[WordTuple]):
@@ -91,5 +96,5 @@ def load_existing_matrix(filename: str, sequences: list[WordTuple]):
 
     return pd.DataFrame(ram_matrix, index=multi_index, columns=multi_index)
 
-def score_to_distance(score: float):
-    return np.exp(-score)
+def score_to_distance(best_score: float, score: float):
+    return best_score - score

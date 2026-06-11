@@ -36,13 +36,13 @@ def init_matrix(rows: int, columns: int):
 
     for j in range(1, columns):
         if not free_start_gaps:
-            score_matrix[0][j] = j * scores.GAP_PENALTY
+            score_matrix[0][j] = j * scores.DEFAULT_GAP_PENALTY
 
         trace_matrix[0][j] = "I"
 
     for i in range(1, rows):
         if not free_start_gaps:
-            score_matrix[i][0] = i * scores.GAP_PENALTY
+            score_matrix[i][0] = i * scores.DEFAULT_GAP_PENALTY
 
         trace_matrix[i][0] = "D"
 

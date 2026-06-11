@@ -3,12 +3,18 @@ from lingpy.data import Model
 
 asjp_model = Model('sca')
 
-GAP_PENALTY = -3
-METATHESIS_PENALTY = -1.5
-METATHESIS_PENALTY_EXTEND = -0
-FUSION_PENALTY = -4
-
 MAX_METATHESIS_LENGTH = 3
+EXACT_MATCH_FAVOR = 2.5
+
+DEFAULT_GAP_PENALTY = -0.21
+DEFAULT_METATHESIS_PENALTY = -0.4
+DEFAULT_METATHESIS_EXTEND_PENALTY = -2.62
+DEFAULT_FUSION_PENALTY = -4
+
+gap_penalty = DEFAULT_GAP_PENALTY
+metathesis_penalty = DEFAULT_METATHESIS_PENALTY
+metathesis_extend_penalty = DEFAULT_METATHESIS_EXTEND_PENALTY
+fusion_penalty = DEFAULT_FUSION_PENALTY
 
 OP_MATCH = "M"       # Match / Mismatch
 OP_DELETION = "D"    # Deletion (Gap in word 2)
@@ -59,10 +65,10 @@ def score_direct(base_score: float, char1: str, char2: str):
     return base_score + get_lingpy_score(char1, char2)
 
 def score_deletion(base_score: float):
-    return base_score + GAP_PENALTY
+    return base_score + gap_penalty
 
 def score_insertion(base_score: float):
-    return base_score + GAP_PENALTY
+    return base_score + gap_penalty
 
 def score_contraction(base_score: float, char1_a: str, char1_b: str, char2_target: str):
 
@@ -72,7 +78,7 @@ def score_contraction(base_score: float, char1_a: str, char1_b: str, char2_targe
 
     best_anchor_score = max(score_a, score_b)
 
-    return base_score + best_anchor_score + FUSION_PENALTY
+    return base_score + best_anchor_score + fusion_penalty
 
 def score_expansion(base_score: float, char1_source: str, char2_a: str, char2_b: str):
 
@@ -81,7 +87,7 @@ def score_expansion(base_score: float, char1_source: str, char2_a: str, char2_b:
 def score_metathesis(base_score: float, char1_prev: str, char1_curr: str, char2_prev: str, char2_curr: str):
     cross_match_1 = get_lingpy_score(char1_prev, char2_curr)
     cross_match_2 = get_lingpy_score(char1_curr, char2_prev)
-    return base_score + cross_match_1 + cross_match_2 + METATHESIS_PENALTY
+    return base_score + cross_match_1 + cross_match_2 + metathesis_penalty
 
 def score_syllable_metathesis(seq1: str, seq2: str, alignment: list[list[float]], i: int, j: int, max_length: int):
 
@@ -111,7 +117,7 @@ def score_syllable_metathesis(seq1: str, seq2: str, alignment: list[list[float]]
             continue
 
         swap_score = origin_score + swapped_match_score_syl1 + swapped_match_score_syl2
-        penalized_score = swap_score + METATHESIS_PENALTY + (current_syllable_length-1)*METATHESIS_PENALTY_EXTEND
+        penalized_score = swap_score + metathesis_penalty+ (current_syllable_length - 1) * metathesis_extend_penalty
 
         if penalized_score > best_score:
             best_score = penalized_score
@@ -150,7 +156,38 @@ def get_lingpy_string_score(str1: str, str2: str):
     return accu
 
 
-def get_relative_score(raw_score: float, seq1: str, seq2: str):
-    word_len = max(len(seq1)-1, len(seq2)-1)
-    relative_score = raw_score / word_len
-    return relative_score
+def get_relative_score(raw_score: float, seq1: str, seq2: str) -> float:
+
+        max_len = max(len(seq1), len(seq2))
+        if max_len == 0:
+            return 0.0
+
+        max_possible_score = max_len * EXACT_MATCH_FAVOR
+        relative_score = raw_score / max_possible_score
+
+        return relative_score
+
+
+def override_scoring_params(params: dict[str, float]):
+    global gap_penalty
+    gap_penalty = params['gap_penalty']
+
+    global metathesis_penalty
+    metathesis_penalty = params['metathesis_penalty']
+
+    global metathesis_extend_penalty
+    metathesis_extend_penalty = params['metathesis_extend_penalty']
+
+    global fusion_penalty
+    fusion_penalty = params['fusion_penalty']
+
+def reset_scoring_params():
+    global gap_penalty
+    global metathesis_penalty
+    global metathesis_extend_penalty
+    global fusion_penalty
+
+    gap_penalty = DEFAULT_GAP_PENALTY
+    metathesis_penalty = DEFAULT_METATHESIS_PENALTY
+    metathesis_extend_penalty = DEFAULT_METATHESIS_EXTEND_PENALTY
+    fusion_penalty = DEFAULT_FUSION_PENALTY
