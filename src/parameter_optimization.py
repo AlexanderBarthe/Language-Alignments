@@ -10,8 +10,8 @@ from clustering import calculate_cluster_impurity
 from language_input import get_all_words_as_tuples
 from match_evaluator import match_every
 
-ds = pycldf.Dataset.from_metadata("languages/blumpanotacana/cldf/cldf-metadata.json")
-sequences_sample = get_all_words_as_tuples(ds, sample_ratio=0.1, seed=100)
+ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
+sequences_sample = get_all_words_as_tuples(ds, sample_ratio=0.2, seed=100)
 
 def align_objective(trial):
 
@@ -25,9 +25,7 @@ def align_objective(trial):
                   metathesis_extend_penalty=metathesis_extend_penalty,
                   fusion_penalty=fusion_penalty)
 
-    scores.override_scoring_params(params)
-
-    df_matrix = match_every(sequences_sample)
+    df_matrix = match_evaluator.match_every(sequences_sample, scoring_params=params)
 
     condensed_distances = squareform(df_matrix.values, checks=False)
     tree = linkage(condensed_distances, method='average')
@@ -117,7 +115,7 @@ def db_scan_objective(trial):
                   fusion_penalty=fusion_penalty)
     scores.override_scoring_params(params)
 
-    df_matrix = match_every(sequences_sample)
+    df_matrix = match_evaluator.match_every(sequences_sample, scoring_params=params)
     epsilon = trial.suggest_float('EPSILON', 0.01, 0.5)
     results_df = clustering.run_dbscan_clustering(df_matrix, epsilon)
 
@@ -132,7 +130,13 @@ def db_scan_objective(trial):
     valid_cluster_count = valid_df['Cluster_ID'].nunique()
     fragmentation_penalty = valid_cluster_count / len(valid_df)
 
-    final_loss = (0.5 * base_impurity) + (0.25 * fragmentation_penalty) + (0.25 * noise_ratio)
+    final_loss = (0.4 * base_impurity) + (0.2 * fragmentation_penalty) + (0.4 * noise_ratio)
+
+    if noise_ratio > 0.5:
+        final_loss += (noise_ratio - 0.5) * 2.0
+
+    if base_impurity > 0.5:
+        final_loss += (base_impurity - 0.5) * 2.0
 
     print(f"Impurity: {base_impurity:.4f} | Fragmentation-Penalty: {fragmentation_penalty: 4f} | Noise-Ratio: {noise_ratio:.4f} | Loss: {final_loss:.4f}")
 
@@ -143,7 +147,7 @@ def find_best_dbscan_params():
 
     study = optuna.create_study(direction='minimize')
 
-    study.optimize(db_scan_objective, n_trials=50)
+    study.optimize(db_scan_objective, n_trials=250)
 
     print("Best parameter combination:")
     print(study.best_params)
