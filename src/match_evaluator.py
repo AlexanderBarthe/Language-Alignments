@@ -1,4 +1,5 @@
 from concurrent.futures import ProcessPoolExecutor
+from xxlimited_35 import Null
 
 import numpy as np
 import pandas as pd
@@ -72,7 +73,7 @@ def match_every(sequences: list[WordTuple], scoring_params: dict = None):
 
     with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
         iterator = executor.map(_align_worker, tasks, chunksize=1000)
-        results = list(tqdm(iterator, total=len(tasks), desc="Calculate Alignments", disable=True))
+        results = list(tqdm(iterator, total=len(tasks), desc="Calculate Alignments", disable=False))
 
     for i, j, score in results:
         disk_score_matrix[i, j] = score
@@ -115,3 +116,42 @@ def load_existing_matrix(filename: str, sequences: list[WordTuple]):
 
 def score_to_distance(best_score: float, score: float):
     return best_score - score
+
+
+def show_top_matches(sequences: list[WordTuple], top_n: int):
+
+    df_matrix = match_every(sequences)
+
+    matrix_values = df_matrix.values
+    upper_triangle_mask = np.triu(np.ones(matrix_values.shape), k=1).astype(bool)
+
+    row_indices, col_indices = np.where(upper_triangle_mask)
+    distances = matrix_values[upper_triangle_mask]
+
+    pairs_df = pd.DataFrame({
+        'row_idx': row_indices,
+        'col_idx': col_indices,
+        'distance': distances
+    })
+
+    top_pairs = Null
+
+    if top_n > 0:
+        top_pairs = pairs_df.nsmallest(top_n, 'distance')
+    else:
+        top_pairs = pairs_df.nlargest(top_n*(-1), 'distance')
+
+    for idx, row in top_pairs.iterrows():
+        word_i_info = df_matrix.index[int(row['row_idx'])]
+        word_j_info = df_matrix.columns[int(row['col_idx'])]
+
+        lang_i, concept_i, form_i = word_i_info
+        lang_j, concept_j, form_j = word_j_info
+
+        score, i, j, alignment, traceback = evaluate_single(form_i, form_j)
+
+        print("##############################")
+        print(f"Distance: {row['distance']:.4f}")
+        print(f"Word 1: {form_i:<15}, Language: {lang_i:<12}, Concept: {concept_i}")
+        print(f"Word 2: {form_j:<15}, Language: {lang_j:<12}, Concept: {concept_j}")
+        alignment_algorithm.print_alignment(traceback, "-" + form_i, "-" + form_j)

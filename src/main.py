@@ -9,10 +9,16 @@ import parameter_optimization
 
 def main():
 
-    parameter_optimization.find_best_dbscan_params()
+    ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
+
+    word_list = language_input.get_all_words_as_tuples(ds, 0.1, 101)
+
+    match_evaluator.show_top_matches(word_list, 1000)
+
+    #parameter_optimization.find_best_dbscan_params()
 
 def find_best_match(word_from_lang1, all_words_from_lang2):
-    ds = pycldf.Dataset.from_metadata("../languages/blumpanotacana/cldf/cldf-metadata.json")
+    ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
 
     lang1_name = "Shipibo"
     lang2_name = "Tacana"
@@ -41,7 +47,7 @@ def find_best_match(word_from_lang1, all_words_from_lang2):
     print("Comparisons: ", comparisons)
 
 def cluster():
-    ds = pycldf.Dataset.from_metadata("../languages/blumpanotacana/cldf/cldf-metadata.json")
+    ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
 
     word_list = language_input.get_all_words_as_tuples(ds, 0.4, 101)
 
