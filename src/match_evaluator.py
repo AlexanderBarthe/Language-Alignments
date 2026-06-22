@@ -1,5 +1,4 @@
 from concurrent.futures import ProcessPoolExecutor
-from xxlimited_35 import Null
 
 import numpy as np
 import pandas as pd
@@ -7,7 +6,7 @@ from tqdm import tqdm
 
 import alignment_algorithm
 from language_input import WordTuple
-
+import pandas as pd
 MAX_WORKERS = 10
 
 
@@ -55,7 +54,8 @@ def find_best_match(seq1: str, match_partners: list[str]):
 
     return best_match, best_score, best_alignment, best_traceback, comparisons
 
-def match_every(sequences: list[WordTuple], scoring_params: dict = None):
+# Returns distance matrix
+def match_every(sequences: list[WordTuple], scoring_params: dict = None) -> pd.DataFrame:
 
     filename = 'distances.dat'
     n = len(sequences)
@@ -73,7 +73,7 @@ def match_every(sequences: list[WordTuple], scoring_params: dict = None):
 
     with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
         iterator = executor.map(_align_worker, tasks, chunksize=1000)
-        results = list(tqdm(iterator, total=len(tasks), desc="Calculate Alignments", disable=False))
+        results = list(tqdm(iterator, total=len(tasks), desc="Calculating Alignments", disable=False))
 
     for i, j, score in results:
         disk_score_matrix[i, j] = score
@@ -134,7 +134,7 @@ def show_top_matches(sequences: list[WordTuple], top_n: int):
         'distance': distances
     })
 
-    top_pairs = Null
+    top_pairs = None
 
     if top_n > 0:
         top_pairs = pairs_df.nsmallest(top_n, 'distance')

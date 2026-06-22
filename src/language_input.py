@@ -1,4 +1,5 @@
 import random
+from collections import defaultdict
 from typing import NamedTuple
 
 from pycldf import Dataset
@@ -14,6 +15,9 @@ def find_language_id(dataset: Dataset, language_name: str):
         if language_name.lower() == lang.cldf.name.lower() or language_name.lower() in lang.id.lower():
             return lang.id
     return None
+
+def get_all_language_names(dataset: Dataset) -> list[str]:
+    return list(dataset.objects('LanguageTable'))
 
 def get_all_words(dataset: Dataset, language_name: str):
     all_words = []
@@ -101,3 +105,40 @@ def get_all_words_as_tuples(dataset: Dataset, sample_ratio: float = 1.0, seed: i
             ))
 
     return all_word_tuples
+
+
+def get_all_concept_names(dataset: Dataset) -> list[str]:
+    concept_names = []
+
+    for param in dataset.objects('ParameterTable'):
+        name = param.cldf.name if param.cldf.name else param.id
+        if name and name not in concept_names:
+            concept_names.append(name)
+
+    return concept_names
+
+def get_words_grouped_by_concept(dataset: Dataset) -> dict[str, list[WordTuple]]:
+    lang_cache = {}
+    for lang in dataset.objects('LanguageTable'):
+        lang_cache[lang.id] = lang.cldf.name if lang.cldf.name else lang.id
+
+    concept_cache = {}
+    for param in dataset.objects('ParameterTable'):
+        concept_cache[param.id] = param.cldf.name if param.cldf.name else param.id
+
+    grouped_words = defaultdict(list)
+
+    for form in dataset.objects('FormTable'):
+        lang_name = lang_cache.get(form.cldf.languageReference, "Unknown_Language")
+        concept_name = concept_cache.get(form.cldf.parameterReference, "Unknown_Concept")
+        word_form = extract_segments(form)
+
+        if word_form:
+            word_tuple = WordTuple(
+                language=lang_name,
+                concept=concept_name,
+                form=word_form
+            )
+            grouped_words[concept_name].append(word_tuple)
+
+    return dict(grouped_words)

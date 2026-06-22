@@ -5,15 +5,18 @@ import clustering
 import language_input
 import match_evaluator
 import parameter_optimization
+from src import language_similarity
 
 
 def main():
 
     ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
 
-    word_list = language_input.get_all_words_as_tuples(ds, 0.1, 101)
+    language_similarity.print_top_similarities(language_similarity.get_language_closeness_matrix(ds))
 
-    match_evaluator.show_top_matches(word_list, 1000)
+    #word_list = language_input.get_all_words_as_tuples(ds, 0.1, 101)
+
+    #match_evaluator.show_top_matches(word_list, 1000)
 
     #parameter_optimization.find_best_dbscan_params()
 
