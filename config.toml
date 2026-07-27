@@ -1,0 +1,46 @@
+[alignment]
+max_metathesis_length = 3
+model = "sca"
+mt_workers = 10
+
+[operations]
+match = "M"
+deletion = "D"
+insertion = "I"
+contraction = "C"
+expansion = "E"
+metathesis = "S"
+
+[penalties.defaults]
+gap = -3.0
+metathesis = -2.0
+metathesis_extend = -1.25
+fusion = -4.0
+
+[lingpy]
+exact_match_score = 2.5
+threshold_high = 4.0
+score_high = 1.5
+threshold_mid = 0.0
+score_mid = 0.5
+threshold_low = -3.0
+score_low = -1.0
+score_mismatch = -4.0
+
+[clustering.defaults]
+hierarchical_tree_cutoff = 0.4
+min_dbscan_samples = 2
+
+[learning.suggest]
+gap_low = -12
+gap_high = -0.2
+metathesis_low = -12
+metathesis_high = -0.2
+metathesis_extend_low = -12
+metathesis_extend_high = -0.2
+fusion_low = -12
+fusion_high = -0.2
+hierarch_tree_cutoff_frac_low = 0.05
+hierarch_tree_cutoff_frac_high = 0.95
+dbscan_epsilon_low = 0.01
+dbscan_epsilon_high = 2

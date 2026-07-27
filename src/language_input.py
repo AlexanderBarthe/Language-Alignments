@@ -1,25 +1,22 @@
 import random
 from collections import defaultdict
-from typing import NamedTuple
 
 from pycldf import Dataset
+from pycldf.orm import Language
+
+from src.environment.models import WordTuple
 
 
-class WordTuple(NamedTuple):
-    language: str
-    concept: str
-    form: str
-
-def find_language_id(dataset: Dataset, language_name: str):
+def find_language_id(dataset: Dataset, language_name: str) -> str | None:
     for lang in dataset.objects('LanguageTable'):
         if language_name.lower() == lang.cldf.name.lower() or language_name.lower() in lang.id.lower():
             return lang.id
     return None
 
-def get_all_language_names(dataset: Dataset) -> list[str]:
+def get_all_languages(dataset: Dataset) -> list[Language]:
     return list(dataset.objects('LanguageTable'))
 
-def get_all_words(dataset: Dataset, language_name: str):
+def get_all_words_for_language(dataset: Dataset, language_name: str) -> list[str]:
     all_words = []
 
     lang_id = find_language_id(dataset, language_name)
@@ -34,7 +31,23 @@ def get_all_words(dataset: Dataset, language_name: str):
 
     return all_words
 
-def find_word_by_concept_string(dataset: Dataset, language_name: str, concept_string: str):
+def get_words_for_language_as_tuples(dataset: Dataset, language_name: str) -> list[WordTuple]:
+    lang_id = find_language_id(dataset, language_name)
+    if lang_id is None:
+        return []
+
+    target_lang_name = language_name
+    for lang in dataset.objects('LanguageTable'):
+        if lang.id == lang_id:
+            target_lang_name = lang.cldf.name if lang.cldf.name else lang.id
+            break
+
+    # load all tuples from the entire dataset and filter them
+    all_tuples = get_word_tuple_samples(dataset)
+    return [word for word in all_tuples if word.language == target_lang_name]
+
+
+def find_word_by_concept_string(dataset: Dataset, language_name: str, concept_string: str) -> str | None:
 
     lang_id = find_language_id(dataset, language_name)
     concept_id = find_concept_id(dataset, concept_string)
@@ -47,7 +60,7 @@ def find_word_by_concept_string(dataset: Dataset, language_name: str, concept_st
             return extract_segments(form)
     return None
 
-def find_concept_id(dataset: Dataset, concept_string: str):
+def find_concept_id(dataset: Dataset, concept_string: str) -> str | None:
     for param in dataset.objects('ParameterTable'):
         name = param.cldf.name if param.cldf.name else param.id
         if concept_string.lower() == name.lower():
@@ -55,14 +68,14 @@ def find_concept_id(dataset: Dataset, concept_string: str):
     return None
 
 
-def extract_segments(form):
+def extract_segments(form) -> str:
     if form.cldf.segments:
         return "".join(form.cldf.segments).replace("+", "").replace("-", "")
     else:
         return form.cldf.form
 
 
-def get_all_words_as_tuples(dataset: Dataset, sample_ratio: float = 1.0, seed: int = 101) -> list[WordTuple]:
+def get_word_tuple_samples(dataset: Dataset, sample_ratio: float = 1.0, seed: int = 101) -> list[WordTuple]:
 
     all_languages = list(dataset.objects('LanguageTable'))
 
@@ -142,3 +155,26 @@ def get_words_grouped_by_concept(dataset: Dataset) -> dict[str, list[WordTuple]]
             grouped_words[concept_name].append(word_tuple)
 
     return dict(grouped_words)
+
+
+def get_noise_sample_for_language_pair(words_lang_a: list[WordTuple], words_lang_b: list[WordTuple],
+                                       sample_size: int = 1000) -> list[tuple[WordTuple, WordTuple]]:
+
+    noise_pairs = []
+    attempts = 0
+
+    max_attempts = sample_size * 20
+
+    if not words_lang_a or not words_lang_b:
+        return []
+
+    while len(noise_pairs) < sample_size and attempts < max_attempts:
+        word_a = random.choice(words_lang_a)
+        word_b = random.choice(words_lang_b)
+
+        if word_a.concept != word_b.concept:
+            noise_pairs.append((word_a, word_b))
+
+        attempts += 1
+
+    return noise_pairs

@@ -1,193 +1,150 @@
-
 from lingpy.data import Model
 
-asjp_model = Model('sca')
+from src.environment.config import CONFIG
+from src.environment.models import ScoreMatrix, ScoringParams
 
-MAX_METATHESIS_LENGTH = 3
-EXACT_MATCH_FAVOR = 2.5
+class AlignmentScorer:
 
-DEFAULT_GAP_PENALTY = -3
-DEFAULT_METATHESIS_PENALTY = -2
-DEFAULT_METATHESIS_EXTEND_PENALTY = -1.25
-DEFAULT_FUSION_PENALTY = -4
+    def __init__(self, params: ScoringParams = None):
+        self.params = params or ScoringParams.from_defaults()
+        self.model = Model(CONFIG['alignment']['model'])
 
-gap_penalty = DEFAULT_GAP_PENALTY
-metathesis_penalty = DEFAULT_METATHESIS_PENALTY
-metathesis_extend_penalty = DEFAULT_METATHESIS_EXTEND_PENALTY
-fusion_penalty = DEFAULT_FUSION_PENALTY
+    def calculate_best(self, matrix: ScoreMatrix, seq1: str, seq2: str, pos_i: int, pos_j: int) -> tuple[float, str]:
 
-OP_MATCH = "M"       # Match / Mismatch
-OP_DELETION = "D"    # Deletion (Gap in word 2)
-OP_INSERTION = "I"   # Insertion (Gap in word 1)
-OP_CONTRACTION = "C" # Contraction (2 to 1)
-OP_EXPANSION = "E"   # Expansion (1 to 2)
-OP_METATHESIS = "S"  # Metathesis / Swap
+        direct_score = self.score_direct(matrix[pos_i - 1][pos_j - 1], seq1[pos_j], seq2[pos_i])
 
-def calculate_best(matrix: list[list[float]], seq1: str, seq2: str, i: int, j: int):
+        deletion_score = self.score_deletion(matrix[pos_i - 1][pos_j])
 
-    direct_score = score_direct(matrix[i - 1][j - 1], seq1[j], seq2[i])
+        insertion_score = self.score_insertion(matrix[pos_i][pos_j - 1])
 
-    deletion_score = score_deletion(matrix[i - 1][j])
+        contraction_score = float('-inf')
+        if pos_i >= 2:
+            contraction_score = self.score_contraction(matrix[pos_i - 2][pos_j - 1], seq2[pos_i - 1], seq2[pos_i], seq1[pos_j])
 
-    insertion_score = score_insertion(matrix[i][j - 1])
+        expansion_score = float('-inf')
+        if pos_j >= 2:
+            expansion_score = self.score_expansion(matrix[pos_i - 1][pos_j - 2], seq2[pos_i], seq1[pos_j - 1], seq1[pos_j])
 
-    contraction_score = float('-inf')
-    if i >= 2:
-        contraction_score = score_contraction(matrix[i - 2][j - 1], seq2[i - 1], seq2[i], seq1[j])
+        max_met_len = CONFIG['alignment']['max_metathesis_length']
+        metathesis_score, metathesis_length = self.score_syllable_metathesis(seq1, seq2, matrix, pos_i, pos_j, max_met_len)
 
-    expansion_score = float('-inf')
-    if j >= 2:
-        expansion_score = score_expansion(matrix[i - 1][j - 2], seq2[i], seq1[j - 1], seq1[j])
+        ops = CONFIG['operations']
+        metathesis_op = f"{ops['metathesis']}_{metathesis_length}"
 
-    '''
-    metathesis_score = float('-inf')
-    if i >= 2 and j >= 2:
-        metathesis_score = score_metathesis(matrix[i - 2][j - 2], seq1[j - 1], seq1[j], seq2[i - 1], seq2[i])
-    '''
-    metathesis_score, metathesis_length = score_syllable_metathesis(seq1, seq2, matrix, i, j, MAX_METATHESIS_LENGTH)
-    metathesis_op = f"{OP_METATHESIS}_{metathesis_length}"
+        options = [
+            (direct_score, ops['match']),
+            (metathesis_score, metathesis_op),
+            (contraction_score, ops['contraction']),
+            (expansion_score, ops['expansion']),
+            (deletion_score, ops['deletion']),
+            (insertion_score, ops['insertion'])
+        ]
+        best_score, best_op = max(options, key=lambda x: x[0])
 
-    options = [
-        (direct_score, OP_MATCH),
-        (metathesis_score, metathesis_op),
-        (contraction_score, OP_CONTRACTION),
-        (expansion_score, OP_EXPANSION),
-        (deletion_score, OP_DELETION),
-        (insertion_score, OP_INSERTION)
-    ]
-    best_score, best_op = max(options, key=lambda x: x[0])
-
-    return best_score, best_op
+        return best_score, best_op
 
 
-def score_direct(base_score: float, char1: str, char2: str):
+    def score_direct(self, base_score: float, char1: str, char2: str) -> float:
 
-    return base_score + get_lingpy_score(char1, char2)
+        return base_score + self.get_lingpy_comparison_score(char1, char2)
 
-def score_deletion(base_score: float):
-    return base_score + gap_penalty
+    def score_deletion(self, base_score: float) -> float:
+        return base_score + self.params.gap
 
-def score_insertion(base_score: float):
-    return base_score + gap_penalty
+    def score_insertion(self, base_score: float) -> float:
+        return base_score + self.params.gap
 
-def score_contraction(base_score: float, char1_a: str, char1_b: str, char2_target: str):
+    def score_contraction(self, base_score: float, char1_a: str, char1_b: str, char2_target: str) -> float:
 
-    # Calculate and find best anchor candidate
-    score_a = get_lingpy_score(char1_a, char2_target)
-    score_b = get_lingpy_score(char1_b, char2_target)
+        # Calculate and find best anchor candidate
+        score_a = self.get_lingpy_comparison_score(char1_a, char2_target)
+        score_b = self.get_lingpy_comparison_score(char1_b, char2_target)
 
-    best_anchor_score = max(score_a, score_b)
+        best_anchor_score = max(score_a, score_b)
 
-    return base_score + best_anchor_score + fusion_penalty
+        return base_score + best_anchor_score + self.params.fusion
 
-def score_expansion(base_score: float, char1_source: str, char2_a: str, char2_b: str):
+    def score_expansion(self, base_score: float, char1_source: str, char2_a: str, char2_b: str) -> float:
 
-    return score_contraction(base_score, char2_a, char2_b, char1_source)
+        return self.score_contraction(base_score, char2_a, char2_b, char1_source)
 
-def score_metathesis(base_score: float, char1_prev: str, char1_curr: str, char2_prev: str, char2_curr: str):
-    cross_match_1 = get_lingpy_score(char1_prev, char2_curr)
-    cross_match_2 = get_lingpy_score(char1_curr, char2_prev)
-    return base_score + cross_match_1 + cross_match_2 + metathesis_penalty
+    def score_metathesis(self, base_score: float, char1_prev: str, char1_curr: str, char2_prev: str, char2_curr: str) -> float:
+        cross_match_1 = self.get_lingpy_comparison_score(char1_prev, char2_curr)
+        cross_match_2 = self.get_lingpy_comparison_score(char1_curr, char2_prev)
+        return base_score + cross_match_1 + cross_match_2 + self.params.metathesis
 
-def score_syllable_metathesis(seq1: str, seq2: str, alignment: list[list[float]], i: int, j: int, max_length: int):
+    def score_syllable_metathesis(self, seq1: str, seq2: str, alignment: ScoreMatrix, i: int, j: int, max_length: int) -> tuple[float, int]:
 
-    best_score = float('-inf')
-    best_syllable_length = 0
+        best_score = float('-inf')
+        best_syllable_length = 0
 
-    for current_syllable_length in range(1, max_length + 1):
+        for current_syllable_length in range(1, max_length + 1):
 
-        if i - current_syllable_length * 2 < 0 or j - current_syllable_length * 2 < 0:
-            break
+            if i - current_syllable_length * 2 < 0 or j - current_syllable_length * 2 < 0:
+                break
 
-        word1_syl1 = seq1[j - 2 * current_syllable_length + 1: j - current_syllable_length + 1]
-        word1_syl2 = seq1[j - current_syllable_length + 1: j + 1]
+            word1_syl1 = seq1[j - 2 * current_syllable_length + 1: j - current_syllable_length + 1]
+            word1_syl2 = seq1[j - current_syllable_length + 1: j + 1]
 
-        word2_syl1 = seq2[i - 2 * current_syllable_length + 1: i - current_syllable_length + 1]
-        word2_syl2 = seq2[i - current_syllable_length + 1: i + 1]
+            word2_syl1 = seq2[i - 2 * current_syllable_length + 1: i - current_syllable_length + 1]
+            word2_syl2 = seq2[i - current_syllable_length + 1: i + 1]
 
-        origin_score = alignment[i - current_syllable_length * 2][j - current_syllable_length * 2]
+            origin_score = alignment[i - current_syllable_length * 2][j - current_syllable_length * 2]
 
-        unchanged_match_score_syl1 = get_lingpy_string_score(word1_syl1, word2_syl1)
-        unchanged_match_score_syl2 = get_lingpy_string_score(word1_syl2, word2_syl2)
+            unchanged_match_score_syl1 = self.get_lingpy_string_score(word1_syl1, word2_syl1)
+            unchanged_match_score_syl2 = self.get_lingpy_string_score(word1_syl2, word2_syl2)
 
-        swapped_match_score_syl1 = get_lingpy_string_score(word1_syl1, word2_syl2)
-        swapped_match_score_syl2 = get_lingpy_string_score(word1_syl2, word2_syl1)
+            swapped_match_score_syl1 = self.get_lingpy_string_score(word1_syl1, word2_syl2)
+            swapped_match_score_syl2 = self.get_lingpy_string_score(word1_syl2, word2_syl1)
 
-        if unchanged_match_score_syl1 + unchanged_match_score_syl2 > swapped_match_score_syl1 + swapped_match_score_syl2:
-            continue
+            if unchanged_match_score_syl1 + unchanged_match_score_syl2 > swapped_match_score_syl1 + swapped_match_score_syl2:
+                continue
 
-        swap_score = origin_score + swapped_match_score_syl1 + swapped_match_score_syl2
-        penalized_score = swap_score + metathesis_penalty+ (current_syllable_length - 1) * metathesis_extend_penalty
+            swap_score = origin_score + swapped_match_score_syl1 + swapped_match_score_syl2
+            penalized_score = swap_score + self.params.metathesis + (current_syllable_length - 1) * self.params.metathesis_extend
 
-        if penalized_score > best_score:
-            best_score = penalized_score
-            best_syllable_length = current_syllable_length
+            if penalized_score > best_score:
+                best_score = penalized_score
+                best_syllable_length = current_syllable_length
 
-    return best_score, best_syllable_length
-
-
-def get_lingpy_score(char1: str, char2: str):
-    if char1 == char2:
-        return 2.5
-
-    class1 = asjp_model.converter.get(char1, char1)
-    class2 = asjp_model.converter.get(char2, char2)
-    raw_score = asjp_model.scorer[class1, class2]
+        return best_score, best_syllable_length
 
 
-    if raw_score >= 4.0:
-        return 1.5
+    def get_lingpy_comparison_score(self, char1: str, char2: str) -> float:
+        lp = CONFIG["lingpy"]
 
-    elif raw_score >= 0.0:
-        return 0.5
+        if char1 == char2:
+            return lp['exact_match_score']
 
-    elif raw_score >= -3.0:
-        return -1.0
+        class1 = self.model.converter.get(char1, char1)
+        class2 = self.model.converter.get(char2, char2)
+        raw_score = self.model.scorer[class1, class2]
 
-    else:
-        return -4.0
+        if raw_score >= lp["threshold_high"]:
+            return lp["score_high"]
+        elif raw_score >= lp["threshold_mid"]:
+            return lp["score_mid"]
+        elif raw_score >= lp["threshold_low"]:
+            return lp["score_low"]
+        else:
+            return lp["score_mismatch"]
 
-def get_lingpy_string_score(str1: str, str2: str):
-    accu = 0
+    def get_lingpy_string_score(self, str1: str, str2: str) -> float:
+        accu = 0
 
-    for i in range (0, min(len(str1), len(str2))):
-        accu += get_lingpy_score(str1[i], str2[i])
+        for i in range (0, min(len(str1), len(str2))):
+            accu += self.get_lingpy_comparison_score(str1[i], str2[i])
 
-    return accu
-
-
-def get_relative_score(raw_score: float, seq1: str, seq2: str) -> float:
-
-        max_len = max(len(seq1), len(seq2))
-        if max_len == 0:
-            return 0.0
-
-        max_possible_score = max_len * EXACT_MATCH_FAVOR
-        relative_score = raw_score / max_possible_score
-
-        return relative_score
+        return accu
 
 
-def override_scoring_params(params: dict[str, float]):
-    global gap_penalty
-    gap_penalty = params['gap_penalty']
+    def get_relative_score(self, raw_score: float, seq1: str, seq2: str) -> float:
 
-    global metathesis_penalty
-    metathesis_penalty = params['metathesis_penalty']
+            max_len = max(len(seq1), len(seq2))
+            if max_len == 0:
+                return 0.0
 
-    global metathesis_extend_penalty
-    metathesis_extend_penalty = params['metathesis_extend_penalty']
+            max_possible_score = max_len * CONFIG['lingpy']['exact_match_score']
+            relative_score = raw_score / max_possible_score
 
-    global fusion_penalty
-    fusion_penalty = params['fusion_penalty']
-
-def reset_scoring_params():
-    global gap_penalty
-    global metathesis_penalty
-    global metathesis_extend_penalty
-    global fusion_penalty
-
-    gap_penalty = DEFAULT_GAP_PENALTY
-    metathesis_penalty = DEFAULT_METATHESIS_PENALTY
-    metathesis_extend_penalty = DEFAULT_METATHESIS_EXTEND_PENALTY
-    fusion_penalty = DEFAULT_FUSION_PENALTY
+            return relative_score

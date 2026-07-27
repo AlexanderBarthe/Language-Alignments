@@ -1,10 +1,8 @@
-import pycldf
+import numpy as np
+import pandas as pd
 from pycldf import Dataset
 
 import language_input
-import pandas as pd
-import numpy as np
-
 from src import match_evaluator
 from src.clustering import run_hierarchical_clustering
 

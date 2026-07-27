@@ -1,59 +1,57 @@
 import scores
+from src.environment.models import ScoreMatrix, TracebackMatrix, ScoringParams
+from src.scores import AlignmentScorer
 
-score_matrix = []
-trace_matrix = []
 
-free_start_gaps = False
-free_end_gaps = False
+def align(seq1: str, seq2: str, free_start_gaps: bool, free_end_gaps: bool, custom_params: ScoringParams = None) \
+        -> tuple[float, int, int , ScoreMatrix, TracebackMatrix]:
 
-def align(seq1, seq2, free_start, free_end):
-    global free_start_gaps
-    global free_end_gaps
+    scorer = scores.AlignmentScorer(custom_params)
 
     s1 = "-" + seq1
     s2 = "-" + seq2
 
-    free_start_gaps = free_start
-    free_end_gaps = free_end
-
     rows = len(s2)
     columns = len(s1)
 
-    init_matrix(rows, columns)
-    fill_alignment(s1, s2)
+    score_matrix, trace_matrix = init_matrix(rows, columns, free_start_gaps, scorer)
+    score_matrix, trace_matrix = fill_alignment(s1, s2, score_matrix, trace_matrix, scorer)
 
-    abs_final_score, i, j = get_final_absolute_score()
+    abs_final_score, end_cutoff_i, end_cutoff_j = get_final_absolute_score(free_end_gaps, score_matrix)
 
-    rel_final_score = scores.get_relative_score(abs_final_score, s1, s2)
+    rel_final_score = scorer.get_relative_score(abs_final_score, s1, s2)
 
-    return rel_final_score, i, j, score_matrix, trace_matrix
+    return rel_final_score, end_cutoff_i, end_cutoff_j, score_matrix, trace_matrix
 
-def init_matrix(rows: int, columns: int):
-    global score_matrix, trace_matrix
+def init_matrix(rows: int, columns: int, free_start_gaps: bool, scorer: AlignmentScorer) -> tuple[ScoreMatrix, TracebackMatrix]:
 
     score_matrix = [[0 for _ in range(columns)] for _ in range(rows)]
     trace_matrix = [["/" for _ in range(columns)] for _ in range(rows)]
 
     for j in range(1, columns):
         if not free_start_gaps:
-            score_matrix[0][j] = j * scores.DEFAULT_GAP_PENALTY
+            score_matrix[0][j] = j * scorer.params.gap
 
         trace_matrix[0][j] = "I"
 
     for i in range(1, rows):
         if not free_start_gaps:
-            score_matrix[i][0] = i * scores.DEFAULT_GAP_PENALTY
+            score_matrix[i][0] = i * scorer.params.gap
 
         trace_matrix[i][0] = "D"
 
-def fill_alignment(s1: str, s2: str):
-    global score_matrix, trace_matrix
+    return score_matrix, trace_matrix
+
+def fill_alignment(s1: str, s2: str, score_matrix: ScoreMatrix, trace_matrix: TracebackMatrix, scorer: AlignmentScorer) \
+        -> tuple[ScoreMatrix, TracebackMatrix]:
 
     for i in range(1, len(score_matrix)):
         for j in range(1, len(score_matrix[0])):
-            score_matrix[i][j], trace_matrix[i][j] = scores.calculate_best(score_matrix, s1, s2, i, j)
+            score_matrix[i][j], trace_matrix[i][j] = scorer.calculate_best(score_matrix, s1, s2, i, j)
 
-def get_final_absolute_score():
+    return score_matrix, trace_matrix
+
+def get_final_absolute_score(free_end_gaps: bool, score_matrix: ScoreMatrix) -> tuple[float, int, int]:
 
     if free_end_gaps:
 
@@ -95,7 +93,7 @@ def print_matrix(matrix, seq1: str, seq2: str):
         print()
 
 
-def print_alignment(traceback: list[list[str]], seq1: str, seq2: str):
+def print_alignment(traceback: TracebackMatrix, seq1: str, seq2: str):
     i = len(seq2) - 1
     j = len(seq1) - 1
 

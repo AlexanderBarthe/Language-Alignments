@@ -5,20 +5,19 @@ import clustering
 import language_input
 import match_evaluator
 import parameter_optimization
-from src import language_similarity
 
 
 def main():
 
     ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
 
-    language_similarity.print_top_similarities(language_similarity.get_language_closeness_matrix(ds))
+    #language_similarity.print_top_similarities(language_similarity.get_language_closeness_matrix(ds))
 
     #word_list = language_input.get_all_words_as_tuples(ds, 0.1, 101)
 
     #match_evaluator.show_top_matches(word_list, 1000)
 
-    #parameter_optimization.find_best_dbscan_params()
+    parameter_optimization.find_best_dbscan_params()
 
 def find_best_match(word_from_lang1, all_words_from_lang2):
     ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
@@ -27,9 +26,9 @@ def find_best_match(word_from_lang1, all_words_from_lang2):
     lang2_name = "Tacana"
     concept = "Bridge"
 
-    word_from_lang1 = language_input.find_word_by_concept_string(ds, lang1_name, concept)
+    word_from_lang1 = language_input.find_word(lang1_name, concept)
 
-    all_words_from_lang2 = language_input.get_all_words(ds, lang2_name)
+    all_words_from_lang2 = language_input.get_all_words_for_language(ds, lang2_name)
 
     if not word_from_lang1 or not all_words_from_lang2:
         return
@@ -52,7 +51,7 @@ def find_best_match(word_from_lang1, all_words_from_lang2):
 def cluster():
     ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
 
-    word_list = language_input.get_all_words_as_tuples(ds, 0.4, 101)
+    word_list = language_input.get_word_tuple_samples(ds, 0.4, 101)
 
     df = match_evaluator.match_every(word_list)
 
