@@ -1,15 +1,17 @@
 import scores
-from src.environment.models import ScoreMatrix, TracebackMatrix, ScoringParams
+from src.environment.models import ScoreMatrix, TracebackMatrix, ScoringParams, LexstatMatrix
 from src.scores import AlignmentScorer
 
 
-def align(seq1: str, seq2: str, free_start_gaps: bool, free_end_gaps: bool, custom_params: ScoringParams = None) \
+def align(s1: str, s2: str, free_start_gaps: bool, free_end_gaps: bool, custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) \
         -> tuple[float, int, int , ScoreMatrix, TracebackMatrix]:
 
-    scorer = scores.AlignmentScorer(custom_params)
+    scorer = scores.AlignmentScorer(custom_params, lexstat_matrix)
 
-    s1 = "-" + seq1
-    s2 = "-" + seq2
+    if not(s1.startswith("-")):
+        s1 = "-" + s1
+    if not(s2.startswith("-")):
+        s2 = "-" + s2
 
     rows = len(s2)
     columns = len(s1)
@@ -92,8 +94,70 @@ def print_matrix(matrix, seq1: str, seq2: str):
                 print(f"{val:>{width}}", end="")
         print()
 
+def get_matched_seqs(traceback: TracebackMatrix, seq1: str, seq2: str) -> list[tuple[str, str]]:
+
+    if not(seq1.startswith("-")):
+        seq1 = "-" + seq1
+    if not(seq2.startswith("-")):
+        seq2 = "-" + seq2
+
+    i = len(seq2) - 1
+    j = len(seq1) - 1
+
+    pairs = []
+
+    while i > 0 or j > 0:
+        op = traceback[i][j]
+        char1 = ""
+        char2 = ""
+
+        if op == "M":
+            char1 = seq1[j]
+            char2 = seq2[i]
+            i -= 1
+            j -= 1
+        elif op == "D":
+            char1 = "-"
+            char2 = seq2[i]
+            i -= 1
+        elif op == "I":
+            char1 = seq1[j]
+            char2 = "-"
+            j -= 1
+        elif op == "C":
+            char1 = seq1[j]
+            char2 = seq2[i - 1], seq2[i]
+            i -= 2
+            j -= 1
+        elif op == "E":
+            char1 = seq1[j - 1], seq1[j]
+            char2 = seq2[i]
+            i -= 1
+            j -= 2
+        elif op.startswith("S"):
+            swap_length = int(op.split("_")[1])
+
+            char1 = seq1[j - swap_length * 2 + 1: j + 1]
+            char2 = seq2[i - swap_length * 2 + 1: i + 1]
+
+            i -= swap_length * 2
+            j -= swap_length * 2
+        else:
+            break
+
+        pairs.append(tuple([char1, char2]))
+
+    pairs.reverse()
+
+    return pairs
 
 def print_alignment(traceback: TracebackMatrix, seq1: str, seq2: str):
+
+    if not(seq1.startswith("-")):
+        seq1 = "-" + seq1
+    if not(seq2.startswith("-")):
+        seq2 = "-" + seq2
+
     i = len(seq2) - 1
     j = len(seq1) - 1
 

@@ -4,15 +4,20 @@ from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
 from sklearn.cluster import DBSCAN
 
-DEFAULT_TREE_CUTOFF = 0.4
+DEFAULT_TREE_CUTOFF = 0.7
 
 def run_hierarchical_clustering(df: pd.DataFrame, cutoff:float = DEFAULT_TREE_CUTOFF, method: str = 'average')\
         -> tuple[pd.DataFrame, numpy.ndarray]:
     condensed_distances = squareform(df.values, checks=False)
-    tree = linkage(condensed_distances, method=method)
-    cluster_labels = fcluster(tree, t=cutoff, criterion='distance')
+    tree = linkage(condensed_distances, method='average')
+
+    max_tree_distance = tree[:, 2].max()
+    actual_cutoff = cutoff * max_tree_distance
+
+    cluster_labels = fcluster(tree, t=actual_cutoff, criterion='distance')
     results_df = df.index.to_frame(index=False)
     results_df['Cluster_ID'] = cluster_labels
+
     return results_df, tree
 
 def run_dbscan_clustering(df_matrix: pd.DataFrame, eps: float, min_samples: int = 2)\

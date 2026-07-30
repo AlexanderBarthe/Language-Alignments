@@ -1,4 +1,5 @@
 import random
+import warnings
 from collections import defaultdict
 
 from pycldf import Dataset
@@ -13,8 +14,10 @@ def find_language_id(dataset: Dataset, language_name: str) -> str | None:
             return lang.id
     return None
 
+
 def get_all_languages(dataset: Dataset) -> list[Language]:
     return list(dataset.objects('LanguageTable'))
+
 
 def get_all_words_for_language(dataset: Dataset, language_name: str) -> list[str]:
     all_words = []
@@ -30,6 +33,7 @@ def get_all_words_for_language(dataset: Dataset, language_name: str) -> list[str
                 all_words.append(word)
 
     return all_words
+
 
 def get_words_for_language_as_tuples(dataset: Dataset, language_name: str) -> list[WordTuple]:
     lang_id = find_language_id(dataset, language_name)
@@ -59,6 +63,7 @@ def find_word_by_concept_string(dataset: Dataset, language_name: str, concept_st
         if form.cldf.languageReference == lang_id and form.cldf.parameterReference == concept_id:
             return extract_segments(form)
     return None
+
 
 def find_concept_id(dataset: Dataset, concept_string: str) -> str | None:
     for param in dataset.objects('ParameterTable'):
@@ -129,6 +134,7 @@ def get_all_concept_names(dataset: Dataset) -> list[str]:
             concept_names.append(name)
 
     return concept_names
+
 
 def get_words_grouped_by_concept(dataset: Dataset) -> dict[str, list[WordTuple]]:
     lang_cache = {}

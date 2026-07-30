@@ -1,0 +1,132 @@
+import math
+from collections import defaultdict
+
+from lingpy import Model
+from pycldf import Dataset
+
+from src import cldf_repo, match_evaluator, alignment_algorithm
+from src.cldf_repo import CLDFRepository
+from src.environment.config import CONFIG
+from src.environment.models import WordTuple, LexstatMatrix
+
+model = Model(CONFIG['alignment']['model'])
+epsilon = 1e-5
+
+def get_lexstat_score(ds: Dataset, lang_name_a: str, lang_name_b: str) -> LexstatMatrix:
+    cldf = cldf_repo.CLDFRepository(ds)
+
+    expected_dist = calculate_expected_distribution(cldf, lang_name_a, lang_name_b)
+    attested_dist = calculate_attested_distribution(cldf, lang_name_a, lang_name_b)
+
+    lexstat_scores = calculate_lexstat_scoring_matrix(attested_dist, expected_dist)
+
+    return lexstat_scores
+
+def calculate_expected_distribution(cldf: CLDFRepository, lang_name_a: str, lang_name_b: str) \
+        -> LexstatMatrix:
+
+    words_lang_a = cldf.get_words_for_language_as_tuples(lang_name_a)
+    words_lang_b = cldf.get_words_for_language_as_tuples(lang_name_b)
+
+    noise_samples = CLDFRepository.get_noise_sample_for_language_pair(words_lang_a, words_lang_b)
+
+    return calculate_distribution(noise_samples)
+
+def calculate_attested_distribution(cldf: CLDFRepository, lang_name_a: str, lang_name_b: str) \
+        -> LexstatMatrix:
+
+    lang_id_a = cldf.find_language_id(lang_name_a)
+    lang_id_b = cldf.find_language_id(lang_name_b)
+
+    same_word_tuples = cldf.get_same_meaning_pairs_as_tuples(lang_id_a, lang_id_b)
+    return calculate_distribution(same_word_tuples)
+
+
+def calculate_lexstat_scoring_matrix(attested_dist: LexstatMatrix,
+        expected_dist: dict[tuple[str, str], float]) -> dict[tuple[str, str], float]:
+    lexstat_matrix = {}
+
+    for pair, f_attested in attested_dist.items():
+        f_expected = expected_dist.get(pair, 0.0)
+
+        ratio = f_attested / (f_expected + epsilon)
+        score = math.log2(ratio ** 2)
+
+        lexstat_matrix[pair] = score
+
+    return lexstat_matrix
+
+def calculate_distribution(samples: list[tuple[WordTuple, WordTuple]]) -> LexstatMatrix:
+
+    expected_counts = defaultdict(int)
+    total_expected_pairs = 0
+
+    for sample in samples:
+
+        seq1 = sample[0].form
+        seq2 = sample[1].form
+        _, _, traceback_matrix = match_evaluator.evaluate_single(seq1, seq2)
+
+        matched_cognates = alignment_algorithm.get_matched_seqs(traceback_matrix, seq1, seq2)
+
+        for char1, char2 in matched_cognates:
+            discrete_pairs = convert_to_discrete_pairs(char1, char2)
+
+            for s1, s2 in discrete_pairs:
+                if s1 == "-" or s2 == "-":
+                    continue
+
+                pair = (s1, s2)
+                expected_counts[pair] += 1
+                total_expected_pairs += 1
+
+    distribution = {}
+
+    if total_expected_pairs > 0:
+        for pair, count in expected_counts.items():
+            distribution[pair] = count / total_expected_pairs
+
+    return distribution
+
+
+
+def get_class(char: str):
+    if len(char) != 1:
+        return None
+    return model.converter.get(char, char)
+
+
+def convert_to_discrete_pairs(char1, char2) -> list[tuple[str, str]]:
+    pairs = []
+
+    def to_sca(c: str) -> str:
+        if c == '-': return '-'
+        return model.converter.get(c, c)
+
+    if isinstance(char1, str) and isinstance(char2, tuple):
+        pairs.append((to_sca(char1), to_sca(char2[0])))
+        pairs.append((to_sca(char1), to_sca(char2[1])))
+
+    elif isinstance(char1, tuple) and isinstance(char2, str):
+        pairs.append((to_sca(char1[0]), to_sca(char2)))
+        pairs.append((to_sca(char1[1]), to_sca(char2)))
+
+    elif isinstance(char1, str) and isinstance(char2, str) and len(char1) > 1 and len(char2) > 1:
+        half = len(char1) // 2
+
+        syl1_prev = char1[:half]
+        syl1_curr = char1[half:]
+
+        syl2_prev = char2[:half]
+        syl2_curr = char2[half:]
+
+        for i in range(half):
+            pairs.append((to_sca(syl1_prev[i]), to_sca(syl2_curr[i])))
+
+        for i in range(half):
+            pairs.append((to_sca(syl1_curr[i]), to_sca(syl2_prev[i])))
+
+    elif isinstance(char1, str) and isinstance(char2, str):
+        pairs.append((to_sca(char1), to_sca(char2)))
+
+    return pairs

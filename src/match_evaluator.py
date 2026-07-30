@@ -7,32 +7,33 @@ from tqdm import tqdm
 
 import alignment_algorithm
 from src.environment.config import CONFIG
-from src.environment.models import ScoreMatrix, TracebackMatrix, WordTuple, DistanceMatrix, ScoringParams
+from src.environment.models import ScoreMatrix, TracebackMatrix, WordTuple, DistanceMatrix, ScoringParams, LexstatMatrix
 
 MAX_WORKERS = CONFIG['alignment']['mt_workers']
 
 
 def _align_worker(task):
-    i, j, form_i, form_j, custom_params = task
+    i, j, form_i, form_j, custom_params, lexstat_matrix = task
 
-    score, _, _, _, _ = evaluate_single(form_i, form_j, custom_params)
+    score, _, _, = evaluate_single(form_i, form_j, custom_params, lexstat_matrix)
     return i, j, score
 
-def evaluate_single_semiglobally(seq1: str, seq2: str, custom_params: ScoringParams = None) -> tuple[float, int, int, ScoreMatrix, TracebackMatrix]:
-    fs_score, fs_i, fs_j, fs_matrix, fs_traceback = alignment_algorithm.align(seq1, seq2, True, False, custom_params)
+def evaluate_single_semiglobally(seq1: str, seq2: str, custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) -> tuple[float, int, int, ScoreMatrix, TracebackMatrix]:
+    fs_score, fs_i, fs_j, fs_matrix, fs_traceback = alignment_algorithm.align(seq1, seq2, True, False, custom_params, lexstat_matrix)
 
-    fe_score, fe_i, fe_j, fe_matrix, fe_traceback = alignment_algorithm.align(seq1, seq2, False, True, custom_params)
+    fe_score, fe_i, fe_j, fe_matrix, fe_traceback = alignment_algorithm.align(seq1, seq2, False, True, custom_params, lexstat_matrix)
 
     if fs_score > fe_score:
         return fs_score, fs_i, fs_j, fs_matrix, fs_traceback
     else:
         return fe_score, fe_i, fe_j, fe_matrix, fe_traceback
 
-def evaluate_single(seq1: str, seq2: str, custom_params: ScoringParams = None) -> tuple[float, int, int, ScoreMatrix, TracebackMatrix]:
-    return alignment_algorithm.align(seq1, seq2, False, False, custom_params)
+def evaluate_single(seq1: str, seq2: str, custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) -> tuple[float, ScoreMatrix, TracebackMatrix]:
+    score, _, _, score_matrix, traceback_matrix = alignment_algorithm.align(seq1, seq2, False, False, custom_params, lexstat_matrix)
+    return score, score_matrix, traceback_matrix
 
-def find_best_match(seq1: str, match_partners: list[str]) -> tuple[
-    str, float, ScoreMatrix, TracebackMatrix, int]:
+def find_best_match(seq1: str, match_partners: list[str], custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) -> tuple[
+    str | None, float, list[list[float]] | None, list[list[str]] | None, int]:
 
     best_score = float("-inf")
     best_match = None
@@ -41,7 +42,7 @@ def find_best_match(seq1: str, match_partners: list[str]) -> tuple[
     comparisons = 0
 
     for match_partner in match_partners:
-        score, i, j, alignment, traceback = evaluate_single(seq1, match_partner)
+        score, alignment, traceback = evaluate_single(seq1, match_partner, custom_params, lexstat_matrix)
 
         if score > best_score:
             best_score = score
@@ -53,7 +54,7 @@ def find_best_match(seq1: str, match_partners: list[str]) -> tuple[
 
     return best_match, best_score, best_alignment, best_traceback, comparisons
 
-def match_every(sequences: list[WordTuple], custom_params: ScoringParams = None) -> DistanceMatrix:
+def match_every_to_distance(sequences: list[WordTuple], custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) -> DistanceMatrix:
 
     n = len(sequences)
     score_matrix = np.zeros((n, n), dtype='float16')
@@ -61,7 +62,7 @@ def match_every(sequences: list[WordTuple], custom_params: ScoringParams = None)
     tasks = []
     for i in range(n):
         for j in range(i + 1, n):
-            tasks.append((i, j, sequences[i].form, sequences[j].form, custom_params))
+            tasks.append((i, j, sequences[i].form, sequences[j].form, custom_params, lexstat_matrix))
 
     if not tasks:
         return pd.DataFrame(score_matrix)
@@ -83,7 +84,6 @@ def match_every(sequences: list[WordTuple], custom_params: ScoringParams = None)
     multi_index = pd.MultiIndex.from_tuples(sequences, names=["Language", "Concept", "Form"])
     return pd.DataFrame(ram_distance_matrix, index=multi_index, columns=multi_index)
 
-@warnings.deprecated("Saving on disk removed")
 def load_existing_matrix(filename: str, sequences: list[WordTuple]):
     n = len(sequences)
 
@@ -112,7 +112,7 @@ def score_to_distance(best_score: float, score: float) -> float:
 
 def show_top_matches(sequences: list[WordTuple], top_n: int):
 
-    df_matrix = match_every(sequences)
+    df_matrix = match_every_to_distance(sequences)
 
     matrix_values = df_matrix.values
     upper_triangle_mask = np.triu(np.ones(matrix_values.shape), k=1).astype(bool)
@@ -138,7 +138,7 @@ def show_top_matches(sequences: list[WordTuple], top_n: int):
         lang_i, concept_i, form_i = word_i_info
         lang_j, concept_j, form_j = word_j_info
 
-        score, i, j, alignment, traceback = evaluate_single(form_i, form_j)
+        score, alignment, traceback = evaluate_single(form_i, form_j)
 
         print("##############################")
         print(f"Distance: {row['distance']:.4f}")

@@ -8,6 +8,7 @@ from src.environment.config import CONFIG
 type ScoreMatrix = list[list[float]]
 type TracebackMatrix = list[list[str]]
 type DistanceMatrix = pd.DataFrame
+type LexstatMatrix = dict[tuple[str, str], float]
 
 class WordTuple(NamedTuple):
     language: str

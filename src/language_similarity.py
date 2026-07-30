@@ -14,7 +14,7 @@ def score_words_conceptwise(ds: Dataset) -> dict[str, pd.DataFrame]:
 
     for concept in words.keys():
 
-        scoring = match_evaluator.match_every(words[concept])
+        scoring = match_evaluator.match_every_to_distance(words[concept])
 
         output[concept] = scoring
 

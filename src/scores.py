@@ -1,13 +1,15 @@
 from lingpy.data import Model
 
 from src.environment.config import CONFIG
-from src.environment.models import ScoreMatrix, ScoringParams
+from src.environment.models import ScoreMatrix, ScoringParams, LexstatMatrix
+
 
 class AlignmentScorer:
 
-    def __init__(self, params: ScoringParams = None):
+    def __init__(self, params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None):
         self.params = params or ScoringParams.from_defaults()
         self.model = Model(CONFIG['alignment']['model'])
+        self.lexstat_matrix = lexstat_matrix
 
     def calculate_best(self, matrix: ScoreMatrix, seq1: str, seq2: str, pos_i: int, pos_j: int) -> tuple[float, str]:
 
@@ -118,6 +120,12 @@ class AlignmentScorer:
 
         class1 = self.model.converter.get(char1, char1)
         class2 = self.model.converter.get(char2, char2)
+
+        if self.lexstat_matrix is not None:
+            pair = (class1, class2)
+            if pair in self.lexstat_matrix:
+                return self.lexstat_matrix[pair]
+
         raw_score = self.model.scorer[class1, class2]
 
         if raw_score >= lp["threshold_high"]:

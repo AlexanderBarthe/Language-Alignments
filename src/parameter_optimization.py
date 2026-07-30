@@ -7,7 +7,7 @@ import clustering
 import match_evaluator
 from clustering import calculate_cluster_impurity
 from language_input import get_word_tuple_samples
-from match_evaluator import match_every
+from match_evaluator import match_every_to_distance
 from src.environment.models import ScoringParams
 
 ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
@@ -22,7 +22,7 @@ def align_objective(trial):
 
     params = ScoringParams.custom_params(gap_penalty, metathesis_penalty, metathesis_extend_penalty, fusion_penalty)
 
-    df_matrix = match_evaluator.match_every(sequences_sample, params)
+    df_matrix = match_evaluator.match_every_to_distance(sequences_sample, params)
 
     condensed_distances = squareform(df_matrix.values, checks=False)
     tree = linkage(condensed_distances, method='average')
@@ -87,7 +87,7 @@ def cluster_objective(trial) -> float:
 
 def find_best_clustering_params():
 
-    df_matrix = match_every(sequences_sample)
+    df_matrix = match_every_to_distance(sequences_sample)
 
     study = optuna.create_study(direction='minimize')
 
@@ -106,7 +106,7 @@ def db_scan_objective(trial) -> float:
 
     params = ScoringParams.custom_params(gap_penalty, metathesis_penalty, metathesis_extend_penalty, fusion_penalty)
 
-    df_matrix = match_evaluator.match_every(sequences_sample, params)
+    df_matrix = match_evaluator.match_every_to_distance(sequences_sample, params)
     epsilon = trial.suggest_float('EPSILON', 0.01, 0.5)
     results_df = clustering.run_dbscan_clustering(df_matrix, epsilon)
 
