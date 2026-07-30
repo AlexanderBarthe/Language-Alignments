@@ -111,31 +111,35 @@ class AlignmentScorer:
 
         return best_score, best_syllable_length
 
-
     def get_lingpy_comparison_score(self, char1: str, char2: str) -> float:
         lp = CONFIG["lingpy"]
-
-        if char1 == char2:
-            return lp['exact_match_score']
 
         class1 = self.model.converter.get(char1, char1)
         class2 = self.model.converter.get(char2, char2)
 
+        # determine base raw score from model or exact match
+        if char1 == char2:
+            raw_score = lp['exact_match_score']
+        else:
+            raw_score = self.model.scorer[class1, class2]
+            if raw_score >= lp["threshold_high"]:
+                raw_score = lp["score_high"]
+            elif raw_score >= lp["threshold_mid"]:
+                raw_score = lp["score_mid"]
+            elif raw_score >= lp["threshold_low"]:
+                raw_score = lp["score_low"]
+            else:
+                raw_score = lp["score_mismatch"]
+
+        # adjust raw score using calculated lexstat matrix if available
         if self.lexstat_matrix is not None:
             pair = (class1, class2)
-            if pair in self.lexstat_matrix:
-                return self.lexstat_matrix[pair]
+            lexstat_weight = CONFIG["alignment"].get("lexstat_weight", 0.5)
 
-        raw_score = self.model.scorer[class1, class2]
+            ls_score = self.lexstat_matrix.get(pair, 0.0)
+            return raw_score + (lexstat_weight * ls_score)
 
-        if raw_score >= lp["threshold_high"]:
-            return lp["score_high"]
-        elif raw_score >= lp["threshold_mid"]:
-            return lp["score_mid"]
-        elif raw_score >= lp["threshold_low"]:
-            return lp["score_low"]
-        else:
-            return lp["score_mismatch"]
+        return raw_score
 
     def get_lingpy_string_score(self, str1: str, str2: str) -> float:
         accu = 0

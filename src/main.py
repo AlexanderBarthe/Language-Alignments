@@ -19,7 +19,7 @@ def main():
 
 
 
-    cluster_two_langs_with_lexstat_scoring()
+    parameter_optimization.find_best_clustering_params_for_pair(ds, lang1_name, lang2_name)
 
 
 
@@ -88,14 +88,13 @@ def cluster_two_langs_with_lexstat_scoring():
 
     df = match_evaluator.match_every_to_distance(words, None, lexstat_scores)
 
-    cluster_frame, tree = clustering.run_hierarchical_clustering(df, 0.4)
+    cluster_frame = clustering.run_dbscan_clustering(df, 0.1)
 
     impurity = clustering.calculate_cluster_impurity(cluster_frame)
 
     print("Impurity: ", impurity)
     print("Cluster amount: ", clustering.get_cluster_count(cluster_frame))
     for i in range(clustering.get_cluster_count(cluster_frame)):
-        print("Entries of cluster", i)
         print(clustering.get_entries_from_cluster(cluster_frame, i))
 
 

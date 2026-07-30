@@ -8,7 +8,9 @@ import match_evaluator
 from clustering import calculate_cluster_impurity
 from language_input import get_word_tuple_samples
 from match_evaluator import match_every_to_distance
+from src.cldf_repo import CLDFRepository
 from src.environment.models import ScoringParams
+from src.lexstat_scores import get_lexstat_score
 
 ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
 sequences_sample = get_word_tuple_samples(ds, sample_ratio=0.2, seed=100)
@@ -97,6 +99,49 @@ def find_best_clustering_params():
     print(study.best_params)
     print(f"Best loss: {study.best_value}")
 
+
+def create_cluster_objective(df_matrix):
+    def cluster_objective2(trial) -> float:
+        # optimize dbscan epsilon
+        epsilon = trial.suggest_float('EPSILON', 0.01, 5)
+        results_df = clustering.run_dbscan_clustering(df_matrix, epsilon)
+
+        noise_ratio = clustering.calculate_noise_ratio(results_df)
+
+        if noise_ratio == 1.0:
+            return 1.0
+
+        base_impurity = clustering.calculate_cluster_impurity(results_df)
+
+        valid_df = results_df[results_df['Cluster_ID'] != -1]
+        valid_cluster_count = valid_df['Cluster_ID'].nunique()
+        fragmentation_penalty = valid_cluster_count / len(valid_df)
+
+        final_loss = (0.5 * base_impurity) + (0.25 * fragmentation_penalty) + (0.25 * noise_ratio)
+
+        return final_loss
+
+    return cluster_objective2
+
+
+def find_best_clustering_params_for_pair(ds, lang1_name: str, lang2_name: str):
+    cldf = CLDFRepository(ds)
+    words = cldf.get_words_for_language_as_tuples(lang1_name)
+    words.extend(cldf.get_words_for_language_as_tuples(lang2_name))
+
+    lexstat_scores = get_lexstat_score(ds, lang1_name, lang2_name)
+
+    df_matrix = match_evaluator.match_every_to_distance(words, None, lexstat_scores)
+
+    study = optuna.create_study(direction='minimize')
+    objective = create_cluster_objective(df_matrix)
+    study.optimize(objective, n_trials=500)
+
+    print("Best parameter combination:")
+    print(study.best_params)
+    print(f"Best loss: {study.best_value}")
+
+    return study.best_params
 
 def db_scan_objective(trial) -> float:
     gap_penalty = trial.suggest_float('GAP_PENALTY', -12.0, -0.2)

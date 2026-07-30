@@ -42,17 +42,21 @@ def calculate_attested_distribution(cldf: CLDFRepository, lang_name_a: str, lang
     return calculate_distribution(same_word_tuples)
 
 
-def calculate_lexstat_scoring_matrix(attested_dist: LexstatMatrix,
-        expected_dist: dict[tuple[str, str], float]) -> dict[tuple[str, str], float]:
+def calculate_lexstat_scoring_matrix(attested_dist: LexstatMatrix, expected_dist: LexstatMatrix) -> LexstatMatrix:
     lexstat_matrix = {}
 
-    for pair, f_attested in attested_dist.items():
+    all_pairs = attested_dist.keys() | expected_dist.keys()
+
+    for pair in all_pairs:
+        f_attested = attested_dist.get(pair, 0.0)
         f_expected = expected_dist.get(pair, 0.0)
 
-        ratio = f_attested / (f_expected + epsilon)
+        ratio = (f_attested + epsilon) / (f_expected + epsilon)
         score = math.log2(ratio ** 2)
 
-        lexstat_matrix[pair] = score
+        s1, s2 = pair
+        lexstat_matrix[(s1, s2)] = score
+        lexstat_matrix[(s2, s1)] = score
 
     return lexstat_matrix
 
@@ -100,33 +104,18 @@ def convert_to_discrete_pairs(char1, char2) -> list[tuple[str, str]]:
     pairs = []
 
     def to_sca(c: str) -> str:
-        if c == '-': return '-'
+        if c == '-':
+            return '-'
         return model.converter.get(c, c)
 
-    if isinstance(char1, str) and isinstance(char2, tuple):
-        pairs.append((to_sca(char1), to_sca(char2[0])))
-        pairs.append((to_sca(char1), to_sca(char2[1])))
+    if isinstance(char1, tuple):
+        char1 = "".join(char1)
+    if isinstance(char2, tuple):
+        char2 = "".join(char2)
 
-    elif isinstance(char1, tuple) and isinstance(char2, str):
-        pairs.append((to_sca(char1[0]), to_sca(char2)))
-        pairs.append((to_sca(char1[1]), to_sca(char2)))
-
-    elif isinstance(char1, str) and isinstance(char2, str) and len(char1) > 1 and len(char2) > 1:
-        half = len(char1) // 2
-
-        syl1_prev = char1[:half]
-        syl1_curr = char1[half:]
-
-        syl2_prev = char2[:half]
-        syl2_curr = char2[half:]
-
-        for i in range(half):
-            pairs.append((to_sca(syl1_prev[i]), to_sca(syl2_curr[i])))
-
-        for i in range(half):
-            pairs.append((to_sca(syl1_curr[i]), to_sca(syl2_prev[i])))
-
-    elif isinstance(char1, str) and isinstance(char2, str):
-        pairs.append((to_sca(char1), to_sca(char2)))
+    if isinstance(char1, str) and isinstance(char2, str):
+        for c1 in char1:
+            for c2 in char2:
+                pairs.append((to_sca(c1), to_sca(c2)))
 
     return pairs

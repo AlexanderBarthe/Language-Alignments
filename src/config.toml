@@ -2,6 +2,7 @@
 max_metathesis_length = 3
 model = "sca"
 mt_workers = 10
+lexstat_weight = 0.5
 
 [operations]
 match = "M"
