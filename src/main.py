@@ -1,26 +1,26 @@
 import pycldf
 
-import alignment_algorithm
-import clustering
 import language_input
-import match_evaluator
 import parameter_optimization
-from src import lexstat_scores, cldf_repo
-from src.cldf_repo import CLDFRepository
+from msa import language_tree
+from src import cldf_repo
+from src.clustering import clustering
 from src.lexstat_scores import get_lexstat_score
+from src.simple_alignment import alignment_algorithm, match_evaluator
 
 
 def main():
 
     ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
 
-    lang1_name = "Shipibo-Konibo"
-    lang2_name = "Tacana"
+    #lang1_name = "Shipibo-Konibo"
+    #lang2_name = "Tacana"
 
 
 
-    parameter_optimization.find_best_clustering_params_for_pair(ds, lang1_name, lang2_name)
+    #parameter_optimization.find_best_clustering_params_for_pair(ds, lang1_name, lang2_name)
 
+    language_tree.build(ds)
 
 
 def find_best_match(word_from_lang1, all_words_from_lang2):
@@ -87,6 +87,8 @@ def cluster_two_langs_with_lexstat_scoring():
     lexstat_scores = get_lexstat_score(ds, lang1_name, lang2_name)
 
     df = match_evaluator.match_every_to_distance(words, None, lexstat_scores)
+
+
 
     cluster_frame = clustering.run_dbscan_clustering(df, 0.1)
 

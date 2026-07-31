@@ -1,11 +1,10 @@
 import random
-import warnings
 from collections import defaultdict
 
 from pycldf import Dataset
 from pycldf.orm import Language
 
-from src.environment.models import WordTuple
+from src.data_structures.models import WordTuple
 
 
 def find_language_id(dataset: Dataset, language_name: str) -> str | None:

@@ -3,8 +3,8 @@ import pandas as pd
 from pycldf import Dataset
 
 import language_input
-from src import match_evaluator
-from src.clustering import run_hierarchical_clustering
+from src.clustering.clustering import run_hierarchical_clustering
+from src.simple_alignment import match_evaluator
 
 
 def score_words_conceptwise(ds: Dataset) -> dict[str, pd.DataFrame]:

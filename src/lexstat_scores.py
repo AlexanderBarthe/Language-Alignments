@@ -4,16 +4,22 @@ from collections import defaultdict
 from lingpy import Model
 from pycldf import Dataset
 
-from src import cldf_repo, match_evaluator, alignment_algorithm
+from src import cldf_repo
 from src.cldf_repo import CLDFRepository
+from src.data_structures.models import WordTuple, LexstatMatrix
 from src.environment.config import CONFIG
-from src.environment.models import WordTuple, LexstatMatrix
+from src.simple_alignment import alignment_algorithm, match_evaluator
 
 model = Model(CONFIG['alignment']['model'])
 epsilon = 1e-5
 
-def get_lexstat_score(ds: Dataset, lang_name_a: str, lang_name_b: str) -> LexstatMatrix:
-    cldf = cldf_repo.CLDFRepository(ds)
+def get_lexstat_score(data: Dataset | CLDFRepository, lang_name_a: str, lang_name_b: str) -> LexstatMatrix:
+
+    cldf = None
+    if data is Dataset:
+        cldf = cldf_repo.CLDFRepository(data)
+    else:
+        cldf = data
 
     expected_dist = calculate_expected_distribution(cldf, lang_name_a, lang_name_b)
     attested_dist = calculate_attested_distribution(cldf, lang_name_a, lang_name_b)

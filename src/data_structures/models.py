@@ -1,7 +1,7 @@
+from dataclasses import dataclass
 from typing import NamedTuple
 
 import pandas as pd
-from dataclasses import dataclass
 
 from src.environment.config import CONFIG
 

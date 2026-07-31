@@ -1,6 +1,7 @@
-import scores
-from src.environment.models import ScoreMatrix, TracebackMatrix, ScoringParams, LexstatMatrix
-from src.scores import AlignmentScorer
+
+from src.data_structures.models import ScoreMatrix, TracebackMatrix, ScoringParams, LexstatMatrix
+from src.simple_alignment import scores
+from src.simple_alignment.scores import AlignmentScorer
 
 
 def align(s1: str, s2: str, free_start_gaps: bool, free_end_gaps: bool, custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) \

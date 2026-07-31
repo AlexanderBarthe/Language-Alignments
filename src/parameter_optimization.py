@@ -3,14 +3,14 @@ import pycldf
 from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
 
-import clustering
-import match_evaluator
-from clustering import calculate_cluster_impurity
 from language_input import get_word_tuple_samples
-from match_evaluator import match_every_to_distance
 from src.cldf_repo import CLDFRepository
-from src.environment.models import ScoringParams
+from src.clustering import clustering
+from src.clustering.clustering import calculate_cluster_impurity
+from src.data_structures.models import ScoringParams
 from src.lexstat_scores import get_lexstat_score
+from src.simple_alignment import match_evaluator
+from src.simple_alignment.match_evaluator import match_every_to_distance
 
 ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
 sequences_sample = get_word_tuple_samples(ds, sample_ratio=0.2, seed=100)

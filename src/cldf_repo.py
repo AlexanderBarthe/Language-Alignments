@@ -4,7 +4,7 @@ from collections import defaultdict
 from pycldf import Dataset
 from pycldf.orm import Language
 
-from src.environment.models import WordTuple
+from src.data_structures.models import WordTuple
 
 
 class CLDFRepository:

@@ -1,13 +1,13 @@
-import warnings
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-import alignment_algorithm
+from simple_alignment import alignment_algorithm
+from src.data_structures.models import ScoreMatrix, TracebackMatrix, WordTuple, DistanceMatrix, ScoringParams, \
+    LexstatMatrix
 from src.environment.config import CONFIG
-from src.environment.models import ScoreMatrix, TracebackMatrix, WordTuple, DistanceMatrix, ScoringParams, LexstatMatrix
 
 MAX_WORKERS = CONFIG['alignment']['mt_workers']
 
@@ -109,6 +109,18 @@ def load_existing_matrix(filename: str, sequences: list[WordTuple]):
 def score_to_distance(best_score: float, score: float) -> float:
     return best_score - score
 
+
+def score_to_distance_local(score_ab: float, len_a: int, len_b: int) -> float:
+
+    score_aa = len_a * CONFIG["lingpy"]["exact_match_score"]
+    score_bb = len_b * CONFIG["lingpy"]["exact_match_score"]
+
+    max_possible = max(score_aa, score_bb)
+    if max_possible == 0:
+        return 0.0
+
+    distance = 1.0 - (score_ab / max_possible)
+    return max(0.0, distance)
 
 def show_top_matches(sequences: list[WordTuple], top_n: int):
 

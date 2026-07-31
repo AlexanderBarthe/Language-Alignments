@@ -1,7 +1,7 @@
 from lingpy.data import Model
 
+from src.data_structures.models import ScoreMatrix, ScoringParams, LexstatMatrix
 from src.environment.config import CONFIG
-from src.environment.models import ScoreMatrix, ScoringParams, LexstatMatrix
 
 
 class AlignmentScorer:
