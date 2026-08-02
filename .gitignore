@@ -13,5 +13,6 @@ env/
 
 languages/
 *.dat
+*.pkl
 logs.txt
 *.log

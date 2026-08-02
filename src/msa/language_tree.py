@@ -1,3 +1,6 @@
+import pickle
+from pathlib import Path
+
 import pandas as pd
 from pycldf import Dataset
 
@@ -11,19 +14,29 @@ from msa import profile_alignment_algorithm
 from msa.global_lexstat_model import GlobalLexstatModel
 from simple_alignment import match_evaluator
 
+model_path = Path("lexstat_model.pkl")
+dist_path = Path("language_distances.pkl")
 
-def build(ds: Dataset, concept: str) -> Profile:
+def build(ds: Dataset, concept: str) -> tuple[Profile, TreeNode]:
     cldf = cldf_repo.CLDFRepository(ds)
 
-    lexstat_model = build_lexstat_matrices(cldf)
+    if dist_path.exists() and model_path.exists():
+        with open(model_path, "rb") as f:
+            lexstat_model = pickle.load(f)
+        lang_dist = pd.read_pickle(dist_path)
+    else:
+        lexstat_model = build_lexstat_matrices(cldf)
+        with open(model_path, "wb") as f:
+            pickle.dump(lexstat_model, f)
 
-    lang_dist = build_language_distance_matrix(cldf, lexstat_model)
+        lang_dist = build_language_distance_matrix(cldf, lexstat_model)
+        lang_dist.to_pickle(dist_path)
 
     tree = upgma.build_upgma_tree(lang_dist)
 
     profile = get_profile(tree, cldf, lexstat_model, concept)
 
-    return profile
+    return profile, tree
 
 def build_lexstat_matrices(cldf: CLDFRepository) -> GlobalLexstatModel:
     model = GlobalLexstatModel()
@@ -60,8 +73,6 @@ def build_language_distance_matrix(cldf: CLDFRepository, lexstat_model: GlobalLe
 
             word_tuples = cldf.get_same_meaning_pairs_as_tuples(lang1_id, lang2_id, 10000)
 
-            lexstat_matrix = get_lexstat_score(cldf, lang1, lang2)
-
             accu_dist = 0.0
             count = 0
 
@@ -69,6 +80,8 @@ def build_language_distance_matrix(cldf: CLDFRepository, lexstat_model: GlobalLe
 
                 word1 = word_tuple[0].form
                 word2 = word_tuple[1].form
+
+                lexstat_matrix = lexstat_model.get_matrix(lang1, lang2)
 
                 score, _, _ = match_evaluator.evaluate_single(word1, word2, None, lexstat_matrix)
                 dist = match_evaluator.score_to_distance_local(score, len(word1), len(word2))
@@ -89,12 +102,12 @@ def get_profile(tree_node: TreeNode, cldf: CLDFRepository, lexstat_model: Global
 
     if tree_node.is_leaf():
         lang_name = tree_node.name
-        form = cldf.find_word(lang_name, concept)
+        form = cldf.find_word(lang_name, concept).form
         return Profile.from_single_word(form, lang_name)
 
-    left_profile = get_profile(tree_node.left, cldf, concept)
-    right_profile = get_profile(tree_node.right, cldf, concept)
+    left_profile = get_profile(tree_node.left, cldf, lexstat_model, concept)
+    right_profile = get_profile(tree_node.right, cldf, lexstat_model, concept)
 
-    profile = profile_alignment_algorithm.align_profiles(left_profile, right_profile, False, False, None, lexstat_model)
+    profile, _, _, _, _ = profile_alignment_algorithm.align_profiles(left_profile, right_profile, False, False, None, lexstat_model)
 
     return profile

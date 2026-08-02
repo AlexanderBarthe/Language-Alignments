@@ -20,7 +20,11 @@ def main():
 
     #parameter_optimization.find_best_clustering_params_for_pair(ds, lang1_name, lang2_name)
 
-    language_tree.build(ds)
+    profile, tree = language_tree.build(ds, "eye")
+
+    print(tree)
+    print()
+    print(profile)
 
 
 def find_best_match(word_from_lang1, all_words_from_lang2):

@@ -24,7 +24,7 @@ class ScoringParams:
 
     @classmethod
     def from_defaults(cls) -> "ScoringParams":
-        defs = CONFIG["penalties"]["defaults"]
+        defs = CONFIG["penalties"]
         return cls(
             gap=defs["gap"],
             metathesis=defs["metathesis"],

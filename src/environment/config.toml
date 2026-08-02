@@ -12,7 +12,7 @@ contraction = "C"
 expansion = "E"
 metathesis = "S"
 
-[penalties.defaults]
+[penalties]
 gap = -3.0
 metathesis = -2.0
 metathesis_extend = -1.25

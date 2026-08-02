@@ -1,4 +1,4 @@
-
+from environment.config import CONFIG
 from src.data_structures.models import ScoreMatrix, TracebackMatrix, ScoringParams, LexstatMatrix
 from src.simple_alignment import scores
 from src.simple_alignment.scores import AlignmentScorer
@@ -31,17 +31,19 @@ def init_matrix(rows: int, columns: int, free_start_gaps: bool, scorer: Alignmen
     score_matrix = [[0 for _ in range(columns)] for _ in range(rows)]
     trace_matrix = [["/" for _ in range(columns)] for _ in range(rows)]
 
+    ops = CONFIG['operations']
+
     for j in range(1, columns):
         if not free_start_gaps:
             score_matrix[0][j] = j * scorer.params.gap
 
-        trace_matrix[0][j] = "I"
+        trace_matrix[0][j] = ops['insertion']
 
     for i in range(1, rows):
         if not free_start_gaps:
             score_matrix[i][0] = i * scorer.params.gap
 
-        trace_matrix[i][0] = "D"
+        trace_matrix[i][0] = ops['deletion']
 
     return score_matrix, trace_matrix
 

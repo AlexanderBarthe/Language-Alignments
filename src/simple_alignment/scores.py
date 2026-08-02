@@ -137,7 +137,7 @@ class AlignmentScorer:
             lexstat_weight = CONFIG["alignment"].get("lexstat_weight", 0.5)
 
             ls_score = self.lexstat_matrix.get(pair, 0.0)
-            return raw_score + (lexstat_weight * ls_score)
+            return (1-lexstat_weight)*raw_score + (lexstat_weight * ls_score)
 
         return raw_score
 
