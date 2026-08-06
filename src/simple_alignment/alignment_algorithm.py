@@ -1,4 +1,4 @@
-from environment.config import CONFIG
+from config import CONFIG
 from src.data_structures.models import ScoreMatrix, TracebackMatrix, ScoringParams, LexstatMatrix
 from src.simple_alignment import scores
 from src.simple_alignment.scores import AlignmentScorer

@@ -2,8 +2,16 @@ from data_structures.profile import Profile
 from msa import profile_scores
 from msa.global_lexstat_model import GlobalLexstatModel
 from src.data_structures.models import ScoreMatrix, TracebackMatrix, ScoringParams
-from src.environment.config import CONFIG
+from config import CONFIG
 
+def align(string_a: str, lang_a: str, string_b: str, lang_b: str, free_start_gaps: bool, free_end_gaps: bool,
+          custom_params: ScoringParams = None, lexstat_model: GlobalLexstatModel = None) \
+        -> tuple[Profile, float, float, ScoreMatrix, TracebackMatrix]:
+
+    profile_a = Profile.from_single_word(string_a, lang_a)
+    profile_b = Profile.from_single_word(string_b, lang_b)
+
+    return align_profiles(profile_a, profile_b, free_start_gaps, free_end_gaps, custom_params, lexstat_model)
 
 def align_profiles(profile_a: Profile, profile_b: Profile, free_start_gaps: bool, free_end_gaps: bool,
         custom_params: ScoringParams = None, lexstat_model: GlobalLexstatModel = None) -> tuple[Profile, float, float, ScoreMatrix, TracebackMatrix]:

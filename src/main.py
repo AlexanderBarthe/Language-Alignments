@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 import pycldf
 
 import language_input
@@ -8,19 +11,14 @@ from src.clustering import clustering
 from src.lexstat_scores import get_lexstat_score
 from src.simple_alignment import alignment_algorithm, match_evaluator
 
+project_root = Path(__file__).resolve().parent.parent
+lang_dir = os.path.join(project_root, "languages")
 
 def main():
 
     ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
 
-    #lang1_name = "Shipibo-Konibo"
-    #lang2_name = "Tacana"
-
-
-
-    #parameter_optimization.find_best_clustering_params_for_pair(ds, lang1_name, lang2_name)
-
-    profile, tree = language_tree.build(ds, "eye")
+    profile, tree = language_tree.build(ds, "sky")
 
     print(tree)
     print()

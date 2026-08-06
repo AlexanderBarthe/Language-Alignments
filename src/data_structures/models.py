@@ -3,7 +3,7 @@ from typing import NamedTuple
 
 import pandas as pd
 
-from src.environment.config import CONFIG
+from config import CONFIG
 
 type ScoreMatrix = list[list[float]]
 type TracebackMatrix = list[list[str]]

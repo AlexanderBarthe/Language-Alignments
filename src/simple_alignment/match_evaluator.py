@@ -7,7 +7,7 @@ from tqdm import tqdm
 from simple_alignment import alignment_algorithm
 from src.data_structures.models import ScoreMatrix, TracebackMatrix, WordTuple, DistanceMatrix, ScoringParams, \
     LexstatMatrix
-from src.environment.config import CONFIG
+from config import CONFIG
 
 MAX_WORKERS = CONFIG['alignment']['mt_workers']
 

@@ -6,7 +6,7 @@ from pycldf import Dataset
 
 import cldf_repo
 from cldf_repo import CLDFRepository
-from clustering import upgma
+from clustering import neighbor_joining
 from data_structures.guide_tree import TreeNode
 from data_structures.profile import Profile
 from lexstat_scores import get_lexstat_score
@@ -32,7 +32,7 @@ def build(ds: Dataset, concept: str) -> tuple[Profile, TreeNode]:
         lang_dist = build_language_distance_matrix(cldf, lexstat_model)
         lang_dist.to_pickle(dist_path)
 
-    tree = upgma.build_upgma_tree(lang_dist)
+    tree = neighbor_joining.build_tree_nj(lang_dist)
 
     profile = get_profile(tree, cldf, lexstat_model, concept)
 

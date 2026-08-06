@@ -7,7 +7,7 @@ from pycldf import Dataset
 from src import cldf_repo
 from src.cldf_repo import CLDFRepository
 from src.data_structures.models import WordTuple, LexstatMatrix
-from src.environment.config import CONFIG
+from config import CONFIG
 from src.simple_alignment import alignment_algorithm, match_evaluator
 
 model = Model(CONFIG['alignment']['model'])
