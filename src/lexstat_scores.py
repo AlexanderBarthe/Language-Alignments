@@ -75,7 +75,7 @@ def calculate_distribution(samples: list[tuple[WordTuple, WordTuple]]) -> Lexsta
 
         seq1 = sample[0].form
         seq2 = sample[1].form
-        _, _, traceback_matrix = match_evaluator.evaluate_single(seq1, seq2)
+        _, _, _, traceback_matrix = match_evaluator.evaluate_single(seq1, seq2)
 
         matched_cognates = alignment_algorithm.get_matched_seqs(traceback_matrix, seq1, seq2)
 

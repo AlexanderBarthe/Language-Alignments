@@ -83,8 +83,7 @@ def build_language_distance_matrix(cldf: CLDFRepository, lexstat_model: GlobalLe
 
                 lexstat_matrix = lexstat_model.get_matrix(lang1, lang2)
 
-                score, _, _ = match_evaluator.evaluate_single(word1, word2, None, lexstat_matrix)
-                dist = match_evaluator.score_to_distance_local(score, len(word1), len(word2))
+                score, dist, _, _ = match_evaluator.evaluate_single(word1, word2, None, lexstat_matrix)
                 accu_dist += dist
                 count += 1
 

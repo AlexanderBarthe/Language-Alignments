@@ -30,7 +30,7 @@ def align_profiles(profile_a: Profile, profile_b: Profile, free_start_gaps: bool
 
     abs_final_score, end_cutoff_i, end_cutoff_j = get_final_absolute_score(free_end_gaps, score_matrix)
 
-    rel_final_score = get_relative_score(abs_final_score, profile_a, profile_b)
+    rel_final_score = get_relative_score(abs_final_score, profile_a, profile_b, scorer)
 
     merged_profile = build_new_profile(trace_matrix, profile_a, profile_b)
 
@@ -88,16 +88,24 @@ def get_final_absolute_score(free_end_gaps: bool, score_matrix: ScoreMatrix) -> 
     else:
         return score_matrix[-1][-1], -1, -1
 
-def get_relative_score(raw_score: float, profile1: Profile, profile2: Profile) -> float:
+def calculate_profile_self_score(profile: Profile, scorer: profile_scores.ProfileScorer) -> float:
+    self_score = 0.0
+    for col_idx in range(1, profile.width):
+        col = profile.get_column(col_idx)
+        self_score += scorer.calculate_direct(col, col)
+    return self_score
 
-        max_len = max(profile1.width, profile2.width)
-        if max_len == 0:
-            return 0.0
 
-        max_possible_score = max_len * CONFIG['lingpy']['exact_match_score']
-        relative_score = raw_score / max_possible_score
+def get_relative_score(raw_score: float, profile1: Profile, profile2: Profile, scorer: profile_scores.ProfileScorer) -> float:
+    score_p1 = calculate_profile_self_score(profile1, scorer)
+    score_p2 = calculate_profile_self_score(profile2, scorer)
 
-        return relative_score
+    max_possible_score = max(score_p1, score_p2)
+
+    if max_possible_score <= 0:
+        return 0.0
+
+    return max(0.0, min(1.0, raw_score / max_possible_score))
 
 
 def build_new_profile(traceback_matrix: TracebackMatrix, profile1: Profile, profile2: Profile) -> Profile:

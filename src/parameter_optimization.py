@@ -60,46 +60,6 @@ def find_best_alignment_params():
     print(study.best_params)
     print(f"Best loss: {study.best_value}")
 
-def cluster_objective(trial) -> float:
-
-    df_matrix = match_evaluator.load_existing_matrix('distances.dat', sequences_sample)
-
-    epsilon = trial.suggest_float('EPSILON', 0.01, 2)
-    results_df = clustering.run_dbscan_clustering(df_matrix, epsilon)
-
-    noise_ratio = clustering.calculate_noise_ratio(results_df)
-
-    if noise_ratio == 1.0:
-        return 1.0
-
-    base_impurity = clustering.calculate_cluster_impurity(results_df)
-
-    valid_df = results_df[results_df['Cluster_ID'] != -1]
-    valid_cluster_count = valid_df['Cluster_ID'].nunique()
-    fragmentation_penalty = valid_cluster_count / len(valid_df)
-
-    final_loss = (0.5 * base_impurity) + (0.25 * fragmentation_penalty) + (0.25 * noise_ratio)
-
-    print(
-        f"Impurity: {base_impurity:.4f} | Fragmentation-Penalty: {fragmentation_penalty: 4f} | Noise-Ratio: {noise_ratio:.4f} | Loss: {final_loss:.4f}")
-
-    return final_loss
-
-
-
-def find_best_clustering_params():
-
-    df_matrix = match_every_to_distance(sequences_sample)
-
-    study = optuna.create_study(direction='minimize')
-
-    study.optimize(cluster_objective, n_trials=500)
-
-    print("Best parameter combination:")
-    print(study.best_params)
-    print(f"Best loss: {study.best_value}")
-
-
 def create_cluster_objective(df_matrix):
     def cluster_objective2(trial) -> float:
         # optimize dbscan epsilon

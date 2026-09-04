@@ -5,7 +5,7 @@ from src.simple_alignment.scores import AlignmentScorer
 
 
 def align(s1: str, s2: str, free_start_gaps: bool, free_end_gaps: bool, custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) \
-        -> tuple[float, int, int , ScoreMatrix, TracebackMatrix]:
+        -> tuple[float, float, int, int , ScoreMatrix, TracebackMatrix]:
 
     scorer = scores.AlignmentScorer(custom_params, lexstat_matrix)
 
@@ -22,9 +22,9 @@ def align(s1: str, s2: str, free_start_gaps: bool, free_end_gaps: bool, custom_p
 
     abs_final_score, end_cutoff_i, end_cutoff_j = get_final_absolute_score(free_end_gaps, score_matrix)
 
-    rel_final_score = scorer.get_relative_score(abs_final_score, s1, s2)
+    rel_final_score = get_relative_score(abs_final_score, s1, s2)
 
-    return rel_final_score, end_cutoff_i, end_cutoff_j, score_matrix, trace_matrix
+    return rel_final_score, score_to_distance(rel_final_score), end_cutoff_i, end_cutoff_j, score_matrix, trace_matrix
 
 def init_matrix(rows: int, columns: int, free_start_gaps: bool, scorer: AlignmentScorer) -> tuple[ScoreMatrix, TracebackMatrix]:
 
@@ -238,3 +238,24 @@ def print_alignment(traceback: TracebackMatrix, seq1: str, seq2: str):
     print(str_seq1)
     print(str_mid)
     print(str_seq2)
+
+def calculate_self_score(scorer: AlignmentScorer, sequence: str) -> float:
+    return sum(
+        scorer.get_lingpy_comparison_score(char, char) for char in sequence
+    )
+
+def score_to_distance(relative_score: float) -> float:
+    distance = 1.0 - relative_score
+    return max(0.0, min(1.0, distance))
+
+def get_relative_score(self, raw_score: float, seq1: str, seq2: str) -> float:
+
+        score_aa = self.calculate_self_score(seq1)
+        score_bb = self.calculate_self_score(seq2)
+
+        max_possible_score = max(score_aa, score_bb)
+
+        if max_possible_score <= 0:
+            return 0.0
+
+        return max(0.0, min(1.0, raw_score / max_possible_score))

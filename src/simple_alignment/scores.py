@@ -135,13 +135,3 @@ class AlignmentScorer:
         return accu
 
 
-    def get_relative_score(self, raw_score: float, seq1: str, seq2: str) -> float:
-
-            max_len = max(len(seq1), len(seq2))
-            if max_len == 0:
-                return 0.0
-
-            max_possible_score = max_len * CONFIG['lingpy']['exact_match_score']
-            relative_score = raw_score / max_possible_score
-
-            return relative_score
