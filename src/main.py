@@ -5,6 +5,7 @@ import pycldf
 
 import language_input
 import parameter_optimization
+import study_results
 from msa import language_tree
 from src import cldf_repo
 from src.clustering import clustering
@@ -18,11 +19,16 @@ def main():
 
     ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
 
+    cldf = cldf_repo.CLDFRepository(ds)
+
+    study_results.get_simple_alignment_success_rate(cldf)
+
+    '''
     profile, tree = language_tree.build(ds, "sky")
 
     print(tree)
     print()
-    print(profile)
+    print(profile)'''
 
 
 def find_best_match(word_from_lang1, all_words_from_lang2):

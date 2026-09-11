@@ -8,7 +8,7 @@ from msa.global_lexstat_model import GlobalLexstatModel
 
 class ProfileScorer:
 
-    def __init__(self, params: ScoringParams = None, lexstat_model: GlobalLexstatModel = None):
+    def __init__(self, params: ScoringParams | None = None, lexstat_model: GlobalLexstatModel | None = None):
         self.params = params or ScoringParams.from_defaults()
         self.model = Model(CONFIG['alignment']['model'])
         self.lexstat_model = lexstat_model
@@ -74,12 +74,4 @@ class ProfileScorer:
 
         lexstat_weight = float(CONFIG["alignment"].get("lexstat_weight", 0.5))
         return (1.0 - lexstat_weight) * raw_score + (lexstat_weight * ls_score)
-
-    def get_lingpy_string_score(self, str1: str, str2: str) -> float:
-        accu = 0
-
-        for i in range(0, min(len(str1), len(str2))):
-            accu += self.get_lingpy_comparison_score(str1[i], str2[i])
-
-        return accu
 

@@ -1,6 +1,6 @@
 
 class TreeNode:
-    def __init__(self, name: str = None, left: "TreeNode" = None, right: "TreeNode" = None, distance: float = 0.0):
+    def __init__(self, name: str | None = None, left: "TreeNode | None " = None, right: "TreeNode| None " = None, distance: float = 0.0):
         self.name = name
         self.left = left
         self.right = right

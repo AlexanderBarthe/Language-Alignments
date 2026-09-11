@@ -10,10 +10,16 @@ type TracebackMatrix = list[list[str]]
 type DistanceMatrix = pd.DataFrame
 type LexstatMatrix = dict[tuple[str, str], float]
 
+type LangId = str
+type LangName = str
+type ConceptId = str
+type ConceptName = str
+type WordForm = str
+
 class WordTuple(NamedTuple):
-    language: str
-    concept: str
-    form: str
+    language: LangName
+    concept: ConceptName
+    form: WordForm
 
 @dataclass
 class ScoringParams:

@@ -5,7 +5,7 @@ from src.data_structures.models import ScoreMatrix, TracebackMatrix, ScoringPara
 from config import CONFIG
 
 def align(string_a: str, lang_a: str, string_b: str, lang_b: str, free_start_gaps: bool, free_end_gaps: bool,
-          custom_params: ScoringParams = None, lexstat_model: GlobalLexstatModel = None) \
+          custom_params: ScoringParams | None = None, lexstat_model: GlobalLexstatModel | None = None) \
         -> tuple[Profile, float, float, ScoreMatrix, TracebackMatrix]:
 
     profile_a = Profile.from_single_word(string_a, lang_a)
@@ -14,7 +14,7 @@ def align(string_a: str, lang_a: str, string_b: str, lang_b: str, free_start_gap
     return align_profiles(profile_a, profile_b, free_start_gaps, free_end_gaps, custom_params, lexstat_model)
 
 def align_profiles(profile_a: Profile, profile_b: Profile, free_start_gaps: bool, free_end_gaps: bool,
-        custom_params: ScoringParams = None, lexstat_model: GlobalLexstatModel = None) -> tuple[Profile, float, float, ScoreMatrix, TracebackMatrix]:
+        custom_params: ScoringParams | None = None, lexstat_model: GlobalLexstatModel | None = None) -> tuple[Profile, float, float, ScoreMatrix, TracebackMatrix]:
 
     scorer = profile_scores.ProfileScorer(custom_params, lexstat_model)
 

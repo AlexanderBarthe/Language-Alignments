@@ -4,7 +4,14 @@ from collections import defaultdict
 from pycldf import Dataset
 from pycldf.orm import Language
 
-from src.data_structures.models import WordTuple
+from src.data_structures.models import (
+    ConceptId,
+    ConceptName,
+    LangId,
+    LangName,
+    WordForm,
+    WordTuple,
+)
 
 
 class CLDFRepository:
@@ -12,10 +19,10 @@ class CLDFRepository:
         self.dataset = dataset
 
         # internal cache dictionaries for o(1) lookups
-        self._lang_id_to_name: dict[str, str] = {}
-        self._concept_id_to_name: dict[str, str] = {}
-        self._lang_name_to_id: dict[str, str] = {}
-        self._concept_name_to_id: dict[str, str] = {}
+        self._lang_id_to_name: dict[LangId, LangName] = {}
+        self._concept_id_to_name: dict[ConceptId, ConceptName] = {}
+        self._lang_name_to_id: dict[str, LangId] = {}
+        self._concept_name_to_id: dict[str, ConceptId] = {}
 
         if preload_caches:
             self.refresh_caches()
@@ -41,7 +48,7 @@ class CLDFRepository:
             self._concept_name_to_id[name.lower()] = param.id
 
     @staticmethod
-    def _extract_segments(form) -> str:
+    def _extract_segments(form) -> WordForm:
         # clean and join segments or return raw form
         if form.cldf.segments:
             return "".join(form.cldf.segments).replace("+", "").replace("-", "")
@@ -51,45 +58,45 @@ class CLDFRepository:
     def get_all_languages(self) -> list[Language]:
         return list(self.dataset.objects('LanguageTable'))
 
-    def get_all_language_names(self) -> list[str]:
+    def get_all_language_names(self) -> list[LangName]:
         return list(self._lang_id_to_name.values())
 
-    def find_language_id(self, language_name: str) -> str | None:
+    def find_language_id(self, language_name: LangName) -> LangId | None:
         return self._lang_name_to_id.get(language_name.lower())
 
-    def get_all_words_for_language(self, language_name: str) -> list[str]:
+    def get_all_words_for_language(self, language_name: LangName) -> list[WordForm]:
         tuples = self.get_words_for_language_as_tuples(language_name)
         return [word.form for word in tuples]
 
-    def get_words_for_language_as_tuples(self, language_name: str) -> list[WordTuple]:
+    def get_words_for_language_as_tuples(self, language_name: LangName) -> list[WordTuple]:
         return self.get_word_tuples(languages=[language_name])
 
-    def get_all_concept_names(self) -> list[str]:
+    def get_all_concept_names(self) -> list[ConceptName]:
         return list(self._concept_id_to_name.values())
 
-    def find_concept_id(self, concept_string: str) -> str | None:
+    def find_concept_id(self, concept_string: ConceptName) -> ConceptId | None:
         return self._concept_name_to_id.get(concept_string.lower())
 
-    def get_all_words_for_concept(self, concept_string: str) -> list[str]:
+    def get_all_words_for_concept(self, concept_string: ConceptName) -> list[WordForm]:
         tuples = self.get_words_for_concept_as_tuples(concept_string)
         return [word.form for word in tuples]
 
-    def get_words_for_concept_as_tuples(self, concept_string: str) -> list[WordTuple]:
+    def get_words_for_concept_as_tuples(self, concept_string: ConceptName) -> list[WordTuple]:
         return self.get_word_tuples(concepts=[concept_string])
 
-    def get_words_grouped_by_concept(self) -> dict[str, list[WordTuple]]:
+    def get_words_grouped_by_concept(self) -> dict[ConceptName, list[WordTuple]]:
         grouped_words = defaultdict(list)
         for word_tuple in self.get_word_tuples():
             grouped_words[word_tuple.concept].append(word_tuple)
         return dict(grouped_words)
 
-    def find_word(self, language_name: str, concept_string: str) -> WordTuple | None:
+    def find_word(self, language_name: LangName, concept_string: ConceptName) -> WordTuple | None:
         results = self.get_word_tuples(languages=[language_name], concepts=[concept_string])
         if results:
             return results[0]
         return None
 
-    def get_word_tuples(self, languages: list[str] = None, concepts: list[str] = None,
+    def get_word_tuples(self, languages: list[LangName] | None = None, concepts: list[ConceptName] | None = None,
                         sample_ratio: float = 1.0, seed: int = 101) -> list[WordTuple]:
         # resolve language filters
         allowed_lang_ids = None
@@ -136,7 +143,7 @@ class CLDFRepository:
 
         return results
 
-    def get_same_meaning_pairs_as_tuples(self, lang1_id: str, lang2_id: str, max_size: int = 200) -> list[tuple[WordTuple, WordTuple]]:
+    def get_same_meaning_pairs_as_tuples(self, lang1_id: LangId, lang2_id: LangId, max_size: int = 200) -> list[tuple[WordTuple, WordTuple]]:
         # resolve language names from ids
         lang1_name = self._lang_id_to_name.get(lang1_id)
         lang2_name = self._lang_id_to_name.get(lang2_id)
@@ -180,5 +187,3 @@ class CLDFRepository:
             attempts += 1
 
         return noise_pairs
-
-

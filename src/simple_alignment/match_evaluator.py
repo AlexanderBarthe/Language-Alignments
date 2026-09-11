@@ -5,7 +5,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from config import CONFIG
-from simple_alignment import alignment_algorithm, scores
+from simple_alignment import alignment_algorithm
 from src.data_structures.models import ScoreMatrix, TracebackMatrix, WordTuple, DistanceMatrix, ScoringParams, \
     LexstatMatrix
 
@@ -18,7 +18,7 @@ def _align_worker(task):
     score, distance, _, _, = evaluate_single(form_i, form_j, custom_params, lexstat_matrix)
     return i, j, score, distance
 
-def evaluate_single_semiglobally(seq1: str, seq2: str, custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) -> tuple[float, int, int, ScoreMatrix, TracebackMatrix]:
+def evaluate_single_semiglobally(seq1: str, seq2: str, custom_params: ScoringParams | None = None, lexstat_matrix: LexstatMatrix | None = None) -> tuple[float, int, int, ScoreMatrix, TracebackMatrix]:
     fs_score, dist, fs_i, fs_j, fs_matrix, fs_traceback = alignment_algorithm.align(seq1, seq2, True, False, custom_params, lexstat_matrix)
 
     fe_score, dist, fe_i, fe_j, fe_matrix, fe_traceback = alignment_algorithm.align(seq1, seq2, False, True, custom_params, lexstat_matrix)
@@ -28,11 +28,11 @@ def evaluate_single_semiglobally(seq1: str, seq2: str, custom_params: ScoringPar
     else:
         return fe_score, fe_i, fe_j, fe_matrix, fe_traceback
 
-def evaluate_single(seq1: str, seq2: str, custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) -> tuple[float, float, ScoreMatrix, TracebackMatrix]:
+def evaluate_single(seq1: str, seq2: str, custom_params: ScoringParams | None = None, lexstat_matrix: LexstatMatrix | None = None) -> tuple[float, float, ScoreMatrix, TracebackMatrix]:
     score, distance, _, _, score_matrix, traceback_matrix = alignment_algorithm.align(seq1, seq2, False, False, custom_params, lexstat_matrix)
     return score, distance, score_matrix, traceback_matrix
 
-def find_best_match(seq1: str, match_partners: list[str], custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) -> tuple[
+def find_best_match(seq1: str, match_partners: list[str], custom_params: ScoringParams | None = None, lexstat_matrix: LexstatMatrix | None = None) -> tuple[
     str | None, float, list[list[float]] | None, list[list[str]] | None, int]:
 
     best_score = float("-inf")

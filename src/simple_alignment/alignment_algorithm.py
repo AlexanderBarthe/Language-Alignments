@@ -4,7 +4,7 @@ from src.simple_alignment import scores
 from src.simple_alignment.scores import AlignmentScorer
 
 
-def align(s1: str, s2: str, free_start_gaps: bool, free_end_gaps: bool, custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) \
+def align(s1: str, s2: str, free_start_gaps: bool, free_end_gaps: bool, custom_params: ScoringParams | None = None, lexstat_matrix: LexstatMatrix | None = None) \
         -> tuple[float, float, int, int , ScoreMatrix, TracebackMatrix]:
 
     scorer = scores.AlignmentScorer(custom_params, lexstat_matrix)
@@ -22,7 +22,7 @@ def align(s1: str, s2: str, free_start_gaps: bool, free_end_gaps: bool, custom_p
 
     abs_final_score, end_cutoff_i, end_cutoff_j = get_final_absolute_score(free_end_gaps, score_matrix)
 
-    rel_final_score = get_relative_score(abs_final_score, s1, s2)
+    rel_final_score = get_relative_score(scorer, abs_final_score, s1, s2)
 
     return rel_final_score, score_to_distance(rel_final_score), end_cutoff_i, end_cutoff_j, score_matrix, trace_matrix
 
@@ -248,10 +248,10 @@ def score_to_distance(relative_score: float) -> float:
     distance = 1.0 - relative_score
     return max(0.0, min(1.0, distance))
 
-def get_relative_score(self, raw_score: float, seq1: str, seq2: str) -> float:
+def get_relative_score(scorer: AlignmentScorer, raw_score: float, seq1: str, seq2: str) -> float:
 
-        score_aa = self.calculate_self_score(seq1)
-        score_bb = self.calculate_self_score(seq2)
+        score_aa = calculate_self_score(scorer, seq1)
+        score_bb = calculate_self_score(scorer, seq2)
 
         max_possible_score = max(score_aa, score_bb)
 

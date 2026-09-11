@@ -6,7 +6,7 @@ from config import CONFIG
 
 class AlignmentScorer:
 
-    def __init__(self, params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None):
+    def __init__(self, params: ScoringParams | None = None, lexstat_matrix: LexstatMatrix | None = None):
         self.params = params or ScoringParams.from_defaults()
         self.model = Model(CONFIG['alignment']['model'])
         self.lexstat_matrix = lexstat_matrix
