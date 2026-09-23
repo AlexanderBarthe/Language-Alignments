@@ -54,7 +54,7 @@ def find_best_match(seq1: str, match_partners: list[str], custom_params: Scoring
 
     return best_match, best_score, best_alignment, best_traceback, comparisons
 
-def match_every_to_distance(sequences: list[WordTuple], custom_params: ScoringParams = None, lexstat_matrix: LexstatMatrix = None) -> DistanceMatrix:
+def match_every_to_distance(sequences: list[WordTuple], custom_params: ScoringParams | None = None, lexstat_matrix: LexstatMatrix | None = None) -> DistanceMatrix:
 
     n = len(sequences)
     distance_matrix = np.zeros((n, n), dtype='float16')

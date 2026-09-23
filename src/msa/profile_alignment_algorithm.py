@@ -1,8 +1,9 @@
+from config import CONFIG
 from data_structures.profile import Profile
 from msa import profile_scores
 from msa.global_lexstat_model import GlobalLexstatModel
 from src.data_structures.models import ScoreMatrix, TracebackMatrix, ScoringParams
-from config import CONFIG
+
 
 def align(string_a: str, lang_a: str, string_b: str, lang_b: str, free_start_gaps: bool, free_end_gaps: bool,
           custom_params: ScoringParams | None = None, lexstat_model: GlobalLexstatModel | None = None) \

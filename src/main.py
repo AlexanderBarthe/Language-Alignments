@@ -4,8 +4,8 @@ from pathlib import Path
 import pycldf
 
 import language_input
-import parameter_optimization
-import study_results
+import learning
+import studies
 from msa import language_tree
 from src import cldf_repo
 from src.clustering import clustering
@@ -21,14 +21,18 @@ def main():
 
     cldf = cldf_repo.CLDFRepository(ds)
 
-    study_results.get_simple_alignment_success_rate(cldf)
+    #studies.get_simple_alignment_success_rate(cldf)
 
-    '''
+    print(studies.run_full_clust_learn_set(ds))
+
+    # load dataset and extract sequence samples
+    return
+
     profile, tree = language_tree.build(ds, "sky")
 
     print(tree)
     print()
-    print(profile)'''
+    print(profile)
 
 
 def find_best_match(word_from_lang1, all_words_from_lang2):
@@ -79,7 +83,7 @@ def cluster():
         print(clustering.get_entries_from_cluster(cluster_frame, i))
 
 def optimize_align_params():
-    parameter_optimization.find_best_alignment_params()
+    learning.find_best_alignment_params()
 
 def cluster_two_langs_with_lexstat_scoring():
     ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")

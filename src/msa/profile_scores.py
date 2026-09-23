@@ -1,8 +1,8 @@
 from lingpy import Model
 
+from config import CONFIG
 from data_structures.models import ScoringParams, ScoreMatrix
 from data_structures.profile import Profile, ProfileColumn
-from config import CONFIG
 from msa.global_lexstat_model import GlobalLexstatModel
 
 
