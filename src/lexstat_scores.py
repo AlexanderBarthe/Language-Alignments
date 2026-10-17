@@ -1,5 +1,6 @@
 import math
 from collections import defaultdict
+from dataclasses import dataclass
 
 from lingpy import Model
 from pycldf import Dataset
@@ -13,6 +14,13 @@ from src.data_structures.models import WordTuple, LexstatMatrix
 
 model = Model(CONFIG['alignment']['model'])
 ALPHA = CONFIG['lexstat'].get("alpha", 1.0)
+
+
+@dataclass
+class CorrespondenceDistribution:
+    counts: dict[tuple[str, str], int]
+    probabilities: LexstatMatrix
+
 
 def get_lexstat_score(data: Dataset | CLDFRepository, lang_name_a: str, lang_name_b: str) -> LexstatMatrix:
 
@@ -29,7 +37,7 @@ def get_lexstat_score(data: Dataset | CLDFRepository, lang_name_a: str, lang_nam
     return lexstat_scores
 
 def calculate_expected_distribution(cldf: CLDFRepository, lang_name_a: str, lang_name_b: str) \
-        -> LexstatMatrix:
+        -> CorrespondenceDistribution:
 
     words_lang_a = cldf.get_words_for_language_as_tuples(lang_name_a)
     words_lang_b = cldf.get_words_for_language_as_tuples(lang_name_b)
@@ -39,38 +47,45 @@ def calculate_expected_distribution(cldf: CLDFRepository, lang_name_a: str, lang
     return calculate_distribution(noise_samples)
 
 def calculate_attested_distribution(cldf: CLDFRepository, lang_name_a: str, lang_name_b: str) \
-        -> LexstatMatrix:
+        -> CorrespondenceDistribution:
 
     lang_id_a = cldf.find_language_id(lang_name_a)
     lang_id_b = cldf.find_language_id(lang_name_b)
 
     if lang_id_a is None or lang_id_b is None:
-        return {}
+        return CorrespondenceDistribution({}, {})
     same_word_tuples = cldf.get_same_meaning_pairs_as_tuples(lang_id_a, lang_id_b)
     return calculate_distribution(same_word_tuples)
 
 
-def calculate_lexstat_scoring_matrix(attested_dist: LexstatMatrix, expected_dist: LexstatMatrix) -> LexstatMatrix:
+def calculate_lexstat_scoring_matrix(attested_dist: CorrespondenceDistribution,
+                                    expected_dist: CorrespondenceDistribution) -> LexstatMatrix:
+    """Keep unseen pairs neutral and score evidenced pairs in their own direction."""
+    if not attested_dist.counts or not expected_dist.counts:
+        return {}
+
     lexstat_matrix = {}
 
-    all_pairs = attested_dist.keys() | expected_dist.keys()
+    all_pairs = attested_dist.probabilities.keys() | expected_dist.probabilities.keys()
 
     for pair in all_pairs:
-        f_attested = attested_dist.get(pair, 0.0)
-        f_expected = expected_dist.get(pair, 0.0)
+        if attested_dist.counts.get(pair, 0) == 0 and expected_dist.counts.get(pair, 0) == 0:
+            lexstat_matrix[pair] = 0.0
+            continue
+
+        f_attested = attested_dist.probabilities[pair]
+        f_expected = expected_dist.probabilities[pair]
 
         ratio = (f_attested) / (f_expected)
         score = 2 * math.log2(ratio)
 
-        s1, s2 = pair
-        lexstat_matrix[(s1, s2)] = score
-        lexstat_matrix[(s2, s1)] = score
+        lexstat_matrix[pair] = score
 
     return lexstat_matrix
 
 def calculate_distribution(
     samples: list[tuple[WordTuple, WordTuple]]
-) -> LexstatMatrix:
+) -> CorrespondenceDistribution:
 
     counts = defaultdict(int)
     total_pairs = 0
@@ -113,7 +128,7 @@ def calculate_distribution(
                 total_pairs += 1
 
     if total_pairs == 0:
-        return {}
+        return CorrespondenceDistribution({}, {})
 
     denominator = (
         total_pairs + ALPHA * class_combination_amount
@@ -127,7 +142,7 @@ def calculate_distribution(
         for s2 in classes
     }
 
-    return distribution
+    return CorrespondenceDistribution(dict(counts), distribution)
 
 
 

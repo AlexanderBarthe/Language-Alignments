@@ -7,7 +7,9 @@ class GlobalLexstatModel:
 
     def add_matrix(self, lang1: str, lang2: str, matrix: LexstatMatrix):
         key = tuple(sorted([lang1, lang2]))
-        self._matrices[key] = matrix
+        self._matrices[key] = matrix if lang1 <= lang2 else {
+            (char2, char1): score for (char1, char2), score in matrix.items()
+        }
 
     def has_matrix(self, lang1: str, lang2: str) -> bool:
         key = tuple(sorted([lang1, lang2]))
