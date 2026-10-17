@@ -6,7 +6,7 @@ from pycldf import Dataset
 from cldf_repo import CLDFRepository
 from language_input import get_word_tuple_samples
 from learning import run_optimization_suite
-from simple_alignment import match_evaluator
+from msa import match_evaluator
 
 
 def get_simple_alignment_success_rate(cldf_repo: CLDFRepository) -> None | float:
@@ -31,7 +31,8 @@ def get_simple_alignment_success_rate(cldf_repo: CLDFRepository) -> None | float
             word1 = word_tuple[0]
             word2 = word_tuple[1]
 
-            best_match, _, _, _, _ = match_evaluator.find_best_match(word1.form, all_words_lang2)
+            best_match, _, _, _, _ = match_evaluator.find_best_match(
+                word1.form, all_words_lang2, lang_a=word1.language, lang_b=word2.language)
 
             print(f"Original word: {word1.form}, Best match: {best_match}, Actual word: {word2.form}")
 

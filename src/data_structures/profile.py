@@ -1,18 +1,27 @@
+from collections.abc import Sequence
+
+from data_structures.phonemes import tokenize
+
+
 type ProfileColumn = dict[str, str]
 
 
 class Profile:
-    def __init__(self, rows: dict[str, list[str]]):
-        # map language name directly to character list
-        self.rows = rows
+    def __init__(self, rows: dict[str, list[str]], row_languages: dict[str, str] | None = None):
+        if len({len(row) for row in rows.values()}) > 1:
+            raise ValueError("all profile rows must have the same token count")
+        self.rows = {row_id: list(tokens) for row_id, tokens in rows.items()}
+        self.row_languages = dict(row_languages) if row_languages is not None else {row_id: row_id for row_id in rows}
+        if self.row_languages.keys() != self.rows.keys():
+            raise ValueError("each profile row must have a language")
 
     @classmethod
-    def from_single_word(cls, word: str, lang_name: str) -> "Profile":
-        return cls({lang_name: list(word)})
+    def from_single_word(cls, word: str | Sequence[str], lang_name: str) -> "Profile":
+        return cls({lang_name: list(tokenize(word))})
 
     @classmethod
-    def empty(cls, lang_names: list[str]) -> "Profile":
-        return cls({lid: [] for lid in lang_names})
+    def empty(cls, lang_names: list[str], row_languages: dict[str, str] | None = None) -> "Profile":
+        return cls({lid: [] for lid in lang_names}, row_languages)
 
     @property
     def height(self) -> int:
@@ -20,7 +29,7 @@ class Profile:
 
     @property
     def width(self) -> int:
-        # get length of first character list if dict is not empty
+        # get token count from the first row
         return len(next(iter(self.rows.values()))) if self.rows else 0
 
     def get_column(self, col_idx: int) -> ProfileColumn:
@@ -28,14 +37,14 @@ class Profile:
 
     def append_column(self, chars: list[str]):
         if len(chars) != self.height:
-            raise ValueError("character count must match profile height")
+            raise ValueError("token count must match profile height")
 
         for char_list, char in zip(self.rows.values(), chars):
             char_list.append(char)
 
     def insert_front(self, chars: list[str]):
         if len(chars) != self.height:
-            raise ValueError("character count must match profile height")
+            raise ValueError("token count must match profile height")
 
         for char_list, char in zip(self.rows.values(), chars):
             char_list.insert(0, char)
@@ -54,12 +63,12 @@ class Profile:
             raise ValueError(f"language {lang_name} not found")
 
         if self.width > 0 and len(new_chars) != self.width:
-            raise ValueError("character count must match profile width")
+            raise ValueError("token count must match profile width")
 
         self.rows[lang_name] = new_chars
 
     def get_languages(self) -> list[str]:
-        return list(self.rows.keys())
+        return list(self.row_languages.values())
 
     def ensure_first_column_is_gap(self):
         if self.width == 0:

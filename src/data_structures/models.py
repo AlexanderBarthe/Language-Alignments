@@ -14,7 +14,7 @@ type LangId = str
 type LangName = str
 type ConceptId = str
 type ConceptName = str
-type WordForm = str
+type WordForm = tuple[str, ...]
 
 class WordTuple(NamedTuple):
     language: LangName

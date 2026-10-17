@@ -10,12 +10,11 @@ from clustering import neighbor_joining
 from data_structures.guide_tree import TreeNode
 from data_structures.profile import Profile
 from lexstat_scores import get_lexstat_score
-from msa import profile_alignment_algorithm
+from msa import match_evaluator, profile_alignment_algorithm
 from msa.global_lexstat_model import GlobalLexstatModel
-from simple_alignment import match_evaluator
 
-model_path = Path("lexstat_model.pkl")
-dist_path = Path("language_distances.pkl")
+model_path = Path("lexstat_model_tokens.pkl")
+dist_path = Path("language_distances_tokens.pkl")
 
 def build(ds: Dataset, concept: str) -> tuple[Profile, TreeNode]:
     cldf = cldf_repo.CLDFRepository(ds)
@@ -81,9 +80,8 @@ def build_language_distance_matrix(cldf: CLDFRepository, lexstat_model: GlobalLe
                 word1 = word_tuple[0].form
                 word2 = word_tuple[1].form
 
-                lexstat_matrix = lexstat_model.get_matrix(lang1, lang2)
-
-                score, dist, _, _ = match_evaluator.evaluate_single(word1, word2, None, lexstat_matrix)
+                score, dist, _, _ = match_evaluator.evaluate_single(
+                    word1, word2, lang_a=lang1, lang_b=lang2, lexstat_model=lexstat_model)
                 accu_dist += dist
                 count += 1
 
@@ -101,7 +99,10 @@ def get_profile(tree_node: TreeNode, cldf: CLDFRepository, lexstat_model: Global
 
     if tree_node.is_leaf():
         lang_name = tree_node.name
-        form = cldf.find_word(lang_name, concept).form
+        word = cldf.find_word(lang_name, concept)
+        if word is None:
+            return Profile.from_single_word((), lang_name)
+        form = word.form
         return Profile.from_single_word(form, lang_name)
 
     left_profile = get_profile(tree_node.left, cldf, lexstat_model, concept)

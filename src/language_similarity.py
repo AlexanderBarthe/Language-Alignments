@@ -1,10 +1,11 @@
 import numpy as np
 import pandas as pd
 from pycldf import Dataset
+from scipy.cluster.hierarchy import fcluster, linkage
+from scipy.spatial.distance import squareform
 
 import language_input
-from src.clustering.clustering import run_hierarchical_clustering
-from src.simple_alignment import match_evaluator
+from src.msa import match_evaluator
 
 
 def score_words_conceptwise(ds: Dataset) -> dict[str, pd.DataFrame]:
@@ -44,10 +45,13 @@ def get_language_closeness_matrix(ds: Dataset) -> pd.DataFrame:
 
     for concept, df_matrix in concept_distances.items():
 
-        results_df, tree = run_hierarchical_clustering(df_matrix, cutoff=0.4, method='average')
+        cluster_labels = np.ones(len(df_matrix), dtype=int)
+        if len(df_matrix) > 1:
+            tree = linkage(squareform(df_matrix.values, checks=False), method='average')
+            cluster_labels = fcluster(tree, t=0.4, criterion='distance')
 
         # Build mapping word Tuple to Cluster_ID
-        cluster_mapping = dict(zip(df_matrix.index, results_df['Cluster_ID']))
+        cluster_mapping = dict(zip(df_matrix.index, cluster_labels))
 
         for tuple_i in df_matrix.index:
             for tuple_j in df_matrix.columns:

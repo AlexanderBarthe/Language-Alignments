@@ -6,11 +6,10 @@ import pycldf
 import language_input
 import learning
 import studies
-from msa import language_tree
+from msa import language_tree, match_evaluator, profile_alignment_algorithm
 from src import cldf_repo
 from src.clustering import clustering
 from src.lexstat_scores import get_lexstat_score
-from src.simple_alignment import alignment_algorithm, match_evaluator
 
 project_root = Path(__file__).resolve().parent.parent
 lang_dir = os.path.join(project_root, "languages")
@@ -23,10 +22,10 @@ def main():
 
     #studies.get_simple_alignment_success_rate(cldf)
 
-    print(studies.run_full_clust_learn_set(ds))
+    #print(studies.run_full_clust_learn_set(ds))
 
     # load dataset and extract sequence samples
-    return
+    #return
 
     profile, tree = language_tree.build(ds, "sky")
 
@@ -37,26 +36,32 @@ def main():
 
 def find_best_match(word_from_lang1, all_words_from_lang2):
     ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
+    cldf = cldf_repo.CLDFRepository(ds)
 
-    lang1_name = "Shipibo"
+    lang1_name = "Shipibo-Konibo"
     lang2_name = "Tacana"
     concept = "Bridge"
 
-    word_from_lang1 = language_input.find_word(lang1_name, concept)
+    word = cldf.find_word(lang1_name, concept)
+    word_from_lang1 = word.form if word is not None else None
 
-    all_words_from_lang2 = language_input.get_all_words_for_language(ds, lang2_name)
+    all_words_from_lang2 = cldf.get_all_words_for_language(lang2_name)
 
     if not word_from_lang1 or not all_words_from_lang2:
         return
 
     best_match, best_score, best_alignment, best_traceback, comparisons = match_evaluator.find_best_match(
-        word_from_lang1, all_words_from_lang2)
+        word_from_lang1, all_words_from_lang2, lang_a=lang1_name, lang_b=lang2_name)
 
-    alignment_algorithm.print_matrix(best_alignment, "-" + word_from_lang1, "-" + best_match)
+    if best_match is None:
+        return
+
+    profile_alignment_algorithm.print_matrix(best_alignment, word_from_lang1, best_match)
     print()
-    alignment_algorithm.print_matrix(best_traceback, "-" + word_from_lang1, "-" + best_match)
+    profile_alignment_algorithm.print_matrix(best_traceback, word_from_lang1, best_match)
     print()
-    alignment_algorithm.print_alignment(best_traceback, "-" + word_from_lang1, "-" + best_match)
+    print(profile_alignment_algorithm.align(
+        word_from_lang1, lang1_name, best_match, lang2_name, False, False)[0])
     print()
 
     print("Original word: ", word_from_lang1)

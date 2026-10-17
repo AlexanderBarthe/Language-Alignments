@@ -2,7 +2,7 @@ import optuna
 import pandas as pd
 from src.clustering import clustering
 from src.data_structures.models import ScoringParams
-from src.simple_alignment import match_evaluator
+from src.msa import match_evaluator
 
 
 def evaluate_clustering(results_df: pd.DataFrame) -> tuple[float, float, float, float]:

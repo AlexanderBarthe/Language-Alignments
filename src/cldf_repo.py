@@ -4,6 +4,7 @@ from collections import defaultdict
 from pycldf import Dataset
 from pycldf.orm import Language
 
+from data_structures.phonemes import tokenize
 from src.data_structures.models import (
     ConceptId,
     ConceptName,
@@ -49,11 +50,11 @@ class CLDFRepository:
 
     @staticmethod
     def _extract_segments(form) -> WordForm:
-        # clean and join segments or return raw form
+        # preserve existing segment boundaries or tokenize the raw form
         if form.cldf.segments:
-            return "".join(form.cldf.segments).replace("+", "").replace("-", "")
+            return tuple(token for token in tokenize(form.cldf.segments) if token != "-")
         else:
-            return form.cldf.form
+            return tuple(token for token in tokenize(form.cldf.form or "") if token != "-")
 
     def get_all_languages(self) -> list[Language]:
         return list(self.dataset.objects('LanguageTable'))

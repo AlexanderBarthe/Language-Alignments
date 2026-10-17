@@ -5,18 +5,18 @@ from lingpy import Model
 from pycldf import Dataset
 
 from config import CONFIG
+from data_structures.phonemes import sound_class
+from msa import profile_alignment_algorithm, match_evaluator
 from src import cldf_repo
 from src.cldf_repo import CLDFRepository
 from src.data_structures.models import WordTuple, LexstatMatrix
-from src.simple_alignment import alignment_algorithm, match_evaluator
 
 model = Model(CONFIG['alignment']['model'])
 epsilon = 1e-5
 
 def get_lexstat_score(data: Dataset | CLDFRepository, lang_name_a: str, lang_name_b: str) -> LexstatMatrix:
 
-    cldf = None
-    if data is Dataset:
+    if isinstance(data, Dataset):
         cldf = cldf_repo.CLDFRepository(data)
     else:
         cldf = data
@@ -44,6 +44,8 @@ def calculate_attested_distribution(cldf: CLDFRepository, lang_name_a: str, lang
     lang_id_a = cldf.find_language_id(lang_name_a)
     lang_id_b = cldf.find_language_id(lang_name_b)
 
+    if lang_id_a is None or lang_id_b is None:
+        return {}
     same_word_tuples = cldf.get_same_meaning_pairs_as_tuples(lang_id_a, lang_id_b)
     return calculate_distribution(same_word_tuples)
 
@@ -75,9 +77,10 @@ def calculate_distribution(samples: list[tuple[WordTuple, WordTuple]]) -> Lexsta
 
         seq1 = sample[0].form
         seq2 = sample[1].form
-        _, _, _, traceback_matrix = match_evaluator.evaluate_single(seq1, seq2)
+        _, _, _, traceback_matrix = match_evaluator.evaluate_single(
+            seq1, seq2, lang_a=sample[0].language, lang_b=sample[1].language)
 
-        matched_cognates = alignment_algorithm.get_matched_seqs(traceback_matrix, seq1, seq2)
+        matched_cognates = profile_alignment_algorithm.get_matched_seqs(traceback_matrix, seq1, seq2)
 
         for char1, char2 in matched_cognates:
             discrete_pairs = convert_to_discrete_pairs(char1, char2)
@@ -101,27 +104,10 @@ def calculate_distribution(samples: list[tuple[WordTuple, WordTuple]]) -> Lexsta
 
 
 def get_class(char: str):
-    if len(char) != 1:
-        return None
-    return model.converter.get(char, char)
+    return sound_class(char, model)
 
 
 def convert_to_discrete_pairs(char1, char2) -> list[tuple[str, str]]:
-    pairs = []
-
-    def to_sca(c: str) -> str:
-        if c == '-':
-            return '-'
-        return model.converter.get(c, c)
-
-    if isinstance(char1, tuple):
-        char1 = "".join(char1)
-    if isinstance(char2, tuple):
-        char2 = "".join(char2)
-
-    if isinstance(char1, str) and isinstance(char2, str):
-        for c1 in char1:
-            for c2 in char2:
-                pairs.append((to_sca(c1), to_sca(c2)))
-
-    return pairs
+    tokens1 = (char1,) if isinstance(char1, str) else char1
+    tokens2 = (char2,) if isinstance(char2, str) else char2
+    return [(sound_class(c1, model), sound_class(c2, model)) for c1 in tokens1 for c2 in tokens2]

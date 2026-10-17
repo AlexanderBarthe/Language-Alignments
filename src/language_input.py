@@ -4,7 +4,8 @@ from collections import defaultdict
 from pycldf import Dataset
 from pycldf.orm import Language
 
-from src.data_structures.models import WordTuple
+from data_structures.phonemes import tokenize
+from src.data_structures.models import WordForm, WordTuple
 
 
 def find_language_id(dataset: Dataset, language_name: str) -> str | None:
@@ -18,7 +19,7 @@ def get_all_languages(dataset: Dataset) -> list[Language]:
     return list(dataset.objects('LanguageTable'))
 
 
-def get_all_words_for_language(dataset: Dataset, language_name: str) -> list[str]:
+def get_all_words_for_language(dataset: Dataset, language_name: str) -> list[WordForm]:
     all_words = []
 
     lang_id = find_language_id(dataset, language_name)
@@ -50,7 +51,7 @@ def get_words_for_language_as_tuples(dataset: Dataset, language_name: str) -> li
     return [word for word in all_tuples if word.language == target_lang_name]
 
 
-def find_word_by_concept_string(dataset: Dataset, language_name: str, concept_string: str) -> str | None:
+def find_word_by_concept_string(dataset: Dataset, language_name: str, concept_string: str) -> WordForm | None:
 
     lang_id = find_language_id(dataset, language_name)
     concept_id = find_concept_id(dataset, concept_string)
@@ -72,11 +73,11 @@ def find_concept_id(dataset: Dataset, concept_string: str) -> str | None:
     return None
 
 
-def extract_segments(form) -> str:
+def extract_segments(form) -> WordForm:
     if form.cldf.segments:
-        return "".join(form.cldf.segments).replace("+", "").replace("-", "")
+        return tuple(token for token in tokenize(form.cldf.segments) if token != "-")
     else:
-        return form.cldf.form
+        return tuple(token for token in tokenize(form.cldf.form or "") if token != "-")
 
 
 def get_word_tuple_samples(dataset: Dataset, sample_ratio: float = 1.0, seed: int = 101) -> list[WordTuple]:
