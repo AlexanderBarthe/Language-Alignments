@@ -27,6 +27,8 @@ def main():
     # load dataset and extract sequence samples
     #return
 
+    language_tree.print_lexstat_matrices(cldf)
+
     profile, tree = language_tree.build(ds, "sky")
 
     print(tree)

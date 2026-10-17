@@ -12,7 +12,7 @@ from src.cldf_repo import CLDFRepository
 from src.data_structures.models import WordTuple, LexstatMatrix
 
 model = Model(CONFIG['alignment']['model'])
-epsilon = 1e-5
+ALPHA = CONFIG['lexstat'].get("alpha", 1.0)
 
 def get_lexstat_score(data: Dataset | CLDFRepository, lang_name_a: str, lang_name_b: str) -> LexstatMatrix:
 
@@ -59,8 +59,8 @@ def calculate_lexstat_scoring_matrix(attested_dist: LexstatMatrix, expected_dist
         f_attested = attested_dist.get(pair, 0.0)
         f_expected = expected_dist.get(pair, 0.0)
 
-        ratio = (f_attested + epsilon) / (f_expected + epsilon)
-        score = math.log2(ratio ** 2)
+        ratio = (f_attested) / (f_expected)
+        score = 2 * math.log2(ratio)
 
         s1, s2 = pair
         lexstat_matrix[(s1, s2)] = score
@@ -68,36 +68,64 @@ def calculate_lexstat_scoring_matrix(attested_dist: LexstatMatrix, expected_dist
 
     return lexstat_matrix
 
-def calculate_distribution(samples: list[tuple[WordTuple, WordTuple]]) -> LexstatMatrix:
+def calculate_distribution(
+    samples: list[tuple[WordTuple, WordTuple]]
+) -> LexstatMatrix:
 
-    expected_counts = defaultdict(int)
-    total_expected_pairs = 0
+    counts = defaultdict(int)
+    total_pairs = 0
+
+    classes = get_classes()
+    class_set = set(classes)
+    class_combination_amount = len(classes) ** 2
 
     for sample in samples:
 
         seq1 = sample[0].form
         seq2 = sample[1].form
+
         _, _, _, traceback_matrix = match_evaluator.evaluate_single(
-            seq1, seq2, lang_a=sample[0].language, lang_b=sample[1].language)
+            seq1,
+            seq2,
+            lang_a=sample[0].language,
+            lang_b=sample[1].language
+        )
 
-        matched_cognates = profile_alignment_algorithm.get_matched_seqs(traceback_matrix, seq1, seq2)
+        matched_pairs = profile_alignment_algorithm.get_matched_seqs(
+            traceback_matrix, seq1, seq2
+        )
 
-        for char1, char2 in matched_cognates:
+        for char1, char2 in matched_pairs:
             discrete_pairs = convert_to_discrete_pairs(char1, char2)
 
             for s1, s2 in discrete_pairs:
-                if s1 == "-" or s2 == "-":
+
+                if s1 in {"-", "0"} or s2 in {"-", "0"}:
                     continue
 
-                pair = (s1, s2)
-                expected_counts[pair] += 1
-                total_expected_pairs += 1
+                if s1 not in class_set or s2 not in class_set:
+                    raise ValueError(
+                        f"Unknown sound combination"
+                        f"{s1!r}, {s2!r}"
+                    )
 
-    distribution = {}
+                counts[(s1, s2)] += 1
+                total_pairs += 1
 
-    if total_expected_pairs > 0:
-        for pair, count in expected_counts.items():
-            distribution[pair] = count / total_expected_pairs
+    if total_pairs == 0:
+        return {}
+
+    denominator = (
+        total_pairs + ALPHA * class_combination_amount
+    )
+
+    distribution = {
+        (s1, s2): (
+            counts.get((s1, s2), 0) + ALPHA
+        ) / denominator
+        for s1 in classes
+        for s2 in classes
+    }
 
     return distribution
 
@@ -106,8 +134,31 @@ def calculate_distribution(samples: list[tuple[WordTuple, WordTuple]]) -> Lexsta
 def get_class(char: str):
     return sound_class(char, model)
 
+def get_classes() -> tuple[str, ...]:
+    classes = {
+        c for c in model.converter.values()
+        if c not in {"0", "-"}
+    }
+    return tuple(sorted(classes))
 
-def convert_to_discrete_pairs(char1, char2) -> list[tuple[str, str]]:
+
+def get_class_count() -> int:
+    return len(get_classes())
+
+def convert_to_discrete_pairs(
+    char1, char2
+) -> list[tuple[str, str]]:
+
     tokens1 = (char1,) if isinstance(char1, str) else char1
     tokens2 = (char2,) if isinstance(char2, str) else char2
-    return [(sound_class(c1, model), sound_class(c2, model)) for c1 in tokens1 for c2 in tokens2]
+
+    def to_class(token: str) -> str:
+        if token == "-":
+            return "-"
+        return sound_class(token, model)
+
+    return [
+        (to_class(c1), to_class(c2))
+        for c1 in tokens1
+        for c2 in tokens2
+    ]

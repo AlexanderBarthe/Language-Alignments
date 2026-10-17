@@ -22,6 +22,9 @@ fusion = -4.0
 hierarchical_tree_cutoff = 0.4
 min_dbscan_samples = 2
 
+[lexstat]
+alpha = 1
+
 [learning.suggest]
 gap_low = -12
 gap_high = -0.2
