@@ -1,10 +1,8 @@
 from itertools import combinations
 
 import pandas as pd
-from pycldf import Dataset
 
 from cldf_repo import CLDFRepository
-from language_input import get_word_tuple_samples
 from learning import run_optimization_suite
 from msa import match_evaluator
 
@@ -52,13 +50,13 @@ def get_simple_alignment_success_rate(cldf_repo: CLDFRepository) -> None | float
 
 
 def run_full_clust_learn_set (
-        ds: Dataset,
+        cldf: CLDFRepository,
         output_csv_path: str = "clustering_evaluation_results.csv",
         n_trials: int = 50,
         sample_ratio: float = 0.2,
         seed: int = 100
 ) -> pd.DataFrame:
-    sequences_sample = get_word_tuple_samples(ds, sample_ratio=sample_ratio, seed=seed)
+    sequences_sample = cldf.get_word_tuples(sample_ratio=sample_ratio, seed=seed)
 
     algos_to_test = [
         'hdbscan',

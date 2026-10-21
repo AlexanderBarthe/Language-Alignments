@@ -3,9 +3,7 @@ from pathlib import Path
 
 import pycldf
 
-import language_input
 import learning
-import studies
 from msa import language_tree, match_evaluator, profile_alignment_algorithm
 from src import cldf_repo
 from src.clustering import clustering
@@ -22,7 +20,7 @@ def main():
 
     #studies.get_simple_alignment_success_rate(cldf)
 
-    #print(studies.run_full_clust_learn_set(ds))
+    #print(studies.run_full_clust_learn_set(cldf))
 
     # load dataset and extract sequence samples
     #return
@@ -74,7 +72,8 @@ def find_best_match(word_from_lang1, all_words_from_lang2):
 def cluster():
     ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
 
-    word_list = language_input.get_word_tuple_samples(ds, 0.4, 101)
+    cldf = cldf_repo.CLDFRepository(ds)
+    word_list = cldf.get_word_tuples(sample_ratio=0.4, seed=101)
 
     df = match_evaluator.match_every_to_distance(word_list)
 

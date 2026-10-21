@@ -56,12 +56,7 @@ def build_lexstat_matrices(cldf: CLDFRepository) -> GlobalLexstatModel:
     return model
 
 def print_lexstat_matrices(cldf: CLDFRepository) -> GlobalLexstatModel:
-    """Calculate and print all distinct language pairs' sound-class score matrices.
 
-    Uses the same calculation as tree preparation, without reading or writing caches.
-    Missing sound-class pairs are shown as 0.00, matching the model's fallback score.
-    Returns the calculated model for further inspection or reuse.
-    """
     model = build_lexstat_matrices(cldf)
     for language, language2 in combinations(sorted(cldf.get_all_language_names()), 2):
         matrix = model.get_matrix(language, language2)

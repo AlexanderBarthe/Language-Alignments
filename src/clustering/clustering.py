@@ -1,11 +1,12 @@
 import numpy as np
 import pandas as pd
+from dynamicTreeCut import cutreeHybrid
 from infomap import Infomap
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 from sklearn.cluster import HDBSCAN, AffinityPropagation
-from dynamicTreeCut import cutreeHybrid
 from sklearn_extra.cluster import KMedoids
+
 
 def run_dynamic_tree_clustering(df_matrix: pd.DataFrame, min_cluster_size: int = 2, method: str = 'average') -> tuple[pd.DataFrame, np.ndarray]:
     condensed_distances = squareform(df_matrix.values, checks=False)

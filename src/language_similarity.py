@@ -1,15 +1,14 @@
 import numpy as np
 import pandas as pd
-from pycldf import Dataset
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 
-import language_input
+from cldf_repo import CLDFRepository
 from src.msa import match_evaluator
 
 
-def score_words_conceptwise(ds: Dataset) -> dict[str, pd.DataFrame]:
-    words = language_input.get_words_grouped_by_concept(ds)
+def score_words_conceptwise(cldf: CLDFRepository) -> dict[str, pd.DataFrame]:
+    words = cldf.get_words_grouped_by_concept()
 
     output: dict[str, pd.DataFrame] = {}
 
@@ -22,7 +21,7 @@ def score_words_conceptwise(ds: Dataset) -> dict[str, pd.DataFrame]:
     return output
 
 
-def get_language_closeness_matrix(ds: Dataset) -> pd.DataFrame:
+def get_language_closeness_matrix(ds: CLDFRepository) -> pd.DataFrame:
     concept_distances = score_words_conceptwise(ds)
 
     # Extract languages

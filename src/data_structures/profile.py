@@ -2,7 +2,6 @@ from collections.abc import Sequence
 
 from data_structures.phonemes import tokenize
 
-
 type ProfileColumn = dict[str, str]
 
 
