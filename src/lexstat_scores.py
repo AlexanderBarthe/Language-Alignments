@@ -11,9 +11,11 @@ from msa import profile_alignment_algorithm, match_evaluator
 from src import cldf_repo
 from src.cldf_repo import CLDFRepository
 from src.data_structures.models import WordTuple, LexstatMatrix
+from src.matrix_cache import PairMatrixCache
 
 model = Model(CONFIG['alignment']['model'])
 ALPHA = CONFIG['lexstat'].get("alpha", 1.0)
+LEXSTAT_CALCULATION_VERSION = "lexstat-pair-v1"
 
 
 @dataclass
@@ -22,19 +24,62 @@ class CorrespondenceDistribution:
     probabilities: LexstatMatrix
 
 
-def get_lexstat_score(data: Dataset | CLDFRepository, lang_name_a: str, lang_name_b: str) -> LexstatMatrix:
-
+def get_lexstat_score(
+    data: Dataset | CLDFRepository,
+    lang_name_a: str,
+    lang_name_b: str,
+    load_from_cache: bool = True,
+    store_to_cache: bool = False,
+    *,
+    _cache: PairMatrixCache | None = None,
+    _signature: str | None = None,
+) -> LexstatMatrix:
     if isinstance(data, Dataset):
         cldf = cldf_repo.CLDFRepository(data)
     else:
         cldf = data
 
+    if not load_from_cache and not store_to_cache:
+        return _calculate_lexstat_score(cldf, lang_name_a, lang_name_b)
+
+    if _cache is None or _signature is None:
+        _cache, _signature = _get_lexstat_cache_context(cldf)
+
+    if load_from_cache and not store_to_cache:
+        cached_matrix = _cache.load_lexstat(lang_name_a, lang_name_b, _signature)
+        if cached_matrix is not None:
+            return cached_matrix
+
+    lexstat_matrix = _calculate_lexstat_score(cldf, lang_name_a, lang_name_b)
+    if store_to_cache:
+        _cache.store_lexstat(lang_name_a, lang_name_b, lexstat_matrix, _signature)
+    return lexstat_matrix
+
+
+def _calculate_lexstat_score(cldf: CLDFRepository, lang_name_a: str, lang_name_b: str) -> LexstatMatrix:
     expected_dist = calculate_expected_distribution(cldf, lang_name_a, lang_name_b)
     attested_dist = calculate_attested_distribution(cldf, lang_name_a, lang_name_b)
 
     lexstat_scores = calculate_lexstat_scoring_matrix(attested_dist, expected_dist)
 
     return lexstat_scores
+
+
+def _get_lexstat_cache_context(data) -> tuple[PairMatrixCache, str]:
+    cache = PairMatrixCache()
+    settings = {
+        "config": CONFIG,
+        "alpha": ALPHA,
+        "model": CONFIG["alignment"]["model"],
+        "model_converter": model.converter,
+    }
+    signature = cache.signature_for(
+        data,
+        settings=settings,
+        calculation_version=LEXSTAT_CALCULATION_VERSION,
+    )
+    return cache, signature
+
 
 def calculate_expected_distribution(cldf: CLDFRepository, lang_name_a: str, lang_name_b: str) \
         -> CorrespondenceDistribution:

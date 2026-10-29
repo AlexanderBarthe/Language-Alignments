@@ -16,3 +16,4 @@ languages/
 *.pkl
 logs.txt
 *.log
+cache/
