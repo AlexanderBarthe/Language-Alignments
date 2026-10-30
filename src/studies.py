@@ -1,52 +1,119 @@
+import random
+from collections import defaultdict
+from collections.abc import Iterator
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from itertools import combinations
 
 import pandas as pd
+from tqdm import tqdm
 
 from cldf_repo import CLDFRepository
+from data_structures.models import WordForm, WordTuple
+from config import CONFIG
 from learning import run_optimization_suite
 from msa import match_evaluator
 
 
-def get_simple_alignment_success_rate(cldf_repo: CLDFRepository) -> None | float:
-    lang_names = cldf_repo.get_all_language_names()
+def _prepare_language_pair_work(
+        cldf_repo: CLDFRepository,
+) -> tuple[int, Iterator[tuple[list[tuple[WordTuple, WordTuple]], list[WordForm]]]]:
+    words_by_language: dict[str, list[WordTuple]] = defaultdict(list)
+    for word in cldf_repo.get_word_tuples():
+        words_by_language[word.language].append(word)
 
-    word_matches = 0
-    word_accu = 0
-
-    for lang1_name, lang2_name in combinations(lang_names, 2):
-        lang1_id = cldf_repo.find_language_id(lang1_name)
-        lang2_id = cldf_repo.find_language_id(lang2_name)
-
-        if not lang1_id or not lang2_id:
+    language_names = cldf_repo.get_all_language_names()
+    words_by_concept = {
+        language: {word.concept: word for word in words_by_language[language]}
+        for language in language_names
+    }
+    language_ids = {name: cldf_repo.find_language_id(name) for name in language_names}
+    eligible_language_pairs: list[tuple[str, str]] = []
+    for lang1_name, lang2_name in combinations(language_names, 2):
+        if not language_ids[lang1_name] or not language_ids[lang2_name]:
             continue
 
-        print(f"Matching {lang1_name} to {lang2_name}")
+        shared_concepts = words_by_concept[lang1_name].keys() & words_by_concept[lang2_name].keys()
+        if shared_concepts:
+            eligible_language_pairs.append((lang1_name, lang2_name))
 
-        word_tuples = cldf_repo.get_same_meaning_pairs_as_tuples(lang1_id, lang2_id)
-        all_words_lang2 = cldf_repo.get_all_words_for_language(lang2_name)
-
-        for word_tuple in word_tuples:
-            word1 = word_tuple[0]
-            word2 = word_tuple[1]
-
-            best_match, _, _, _, _ = match_evaluator.find_best_match(
-                word1.form, all_words_lang2, lang_a=word1.language, lang_b=word2.language)
-
-            print(f"Original word: {word1.form}, Best match: {best_match}, Actual word: {word2.form}")
-
-            if best_match == word2.form:
-                word_matches += 1
-
-            word_accu += 1
-
-        print(f"Matches: {word_matches}")
-        print(f"Accu: {word_accu}")
+    return len(eligible_language_pairs), _iter_language_pair_work(
+        words_by_language, words_by_concept, eligible_language_pairs)
 
 
-    if word_accu == 0:
+def _iter_language_pair_work(
+        words_by_language: dict[str, list[WordTuple]],
+        words_by_concept: dict[str, dict[str, WordTuple]],
+        eligible_language_pairs: list[tuple[str, str]],
+) -> Iterator[tuple[list[tuple[WordTuple, WordTuple]], list[WordForm]]]:
+    for lang1_name, lang2_name in eligible_language_pairs:
+        words1_by_concept = words_by_concept[lang1_name]
+        words2_by_concept = words_by_concept[lang2_name]
+        shared_concepts = words1_by_concept.keys() & words2_by_concept.keys()
+        word_pairs = [
+            (words1_by_concept[concept], words2_by_concept[concept])
+            for concept in shared_concepts
+        ]
+
+        if len(word_pairs) > 200:
+            word_pairs = random.sample(word_pairs, 200)
+        candidate_forms = [word.form for word in words_by_language[lang2_name]]
+        yield word_pairs, candidate_forms
+
+
+def _score_language_pair(word_pairs: list[tuple[WordTuple, WordTuple]],
+                         candidate_forms: list[WordForm]) -> tuple[int, int]:
+    matches = 0
+    comparisons = 0
+
+    for word1, word2 in word_pairs:
+        best_match, _, _, _, _ = match_evaluator.find_best_match(
+            word1.form, candidate_forms, lang_a=word1.language, lang_b=word2.language)
+        if best_match == word2.form:
+            matches += 1
+        comparisons += 1
+
+    return matches, comparisons
+
+
+def get_simple_alignment_success_rate(cldf_repo: CLDFRepository) -> None | float:
+    word_matches = 0
+    comparisons = 0
+    max_workers = CONFIG["alignment"]["mt_workers"]
+    eligible_pair_count, work_items = _prepare_language_pair_work(cldf_repo)
+    if eligible_pair_count == 0:
         return None
 
-    return word_matches / word_accu
+    with tqdm(total=eligible_pair_count, desc="Matching language pairs") as progress_bar:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            pending_futures = set()
+
+            for _ in range(max_workers):
+                try:
+                    word_pairs, candidate_forms = next(work_items)
+                except StopIteration:
+                    break
+                pending_futures.add(executor.submit(_score_language_pair, word_pairs, candidate_forms))
+
+            while pending_futures:
+                completed_futures, pending_futures = wait(
+                    pending_futures, return_when=FIRST_COMPLETED)
+                for future in completed_futures:
+                    pair_matches, pair_comparisons = future.result()
+                    word_matches += pair_matches
+                    comparisons += pair_comparisons
+                    progress_bar.update(1)
+
+                    try:
+                        word_pairs, candidate_forms = next(work_items)
+                    except StopIteration:
+                        continue
+                    pending_futures.add(executor.submit(_score_language_pair, word_pairs, candidate_forms))
+
+
+    if comparisons == 0:
+        return None
+
+    return word_matches / comparisons
 
 
 def run_full_clust_learn_set (

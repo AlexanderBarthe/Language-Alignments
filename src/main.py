@@ -4,6 +4,7 @@ from pathlib import Path
 import pycldf
 
 import learning
+import studies
 from msa import language_tree, match_evaluator, profile_alignment_algorithm
 from src import cldf_repo
 from src.clustering import clustering
@@ -26,6 +27,10 @@ def main():
     #return
 
     # language_tree.print_lexstat_matrices(cldf)
+
+    print(studies.get_simple_alignment_success_rate(cldf))
+
+    return
 
     profile, tree = language_tree.build(ds, "sky", True, False)
 
