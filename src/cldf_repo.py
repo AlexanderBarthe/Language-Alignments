@@ -144,7 +144,14 @@ class CLDFRepository:
 
         return results
 
-    def get_same_meaning_pairs_as_tuples(self, lang1_id: LangId, lang2_id: LangId, max_size: int = 200) -> list[tuple[WordTuple, WordTuple]]:
+    def get_same_meaning_pairs_as_tuples(
+            self,
+            lang1_id: LangId,
+            lang2_id: LangId,
+            max_size: int = 200,
+            random_concept_sample: bool = False
+    ) -> list[tuple[WordTuple, WordTuple]]:
+
         # resolve language names from ids
         lang1_name = self._lang_id_to_name.get(lang1_id)
         lang2_name = self._lang_id_to_name.get(lang2_id)
@@ -163,9 +170,21 @@ class CLDFRepository:
         common_concepts = set(map1.keys()) & set(map2.keys())
         pairs = [(map1[c], map2[c]) for c in common_concepts]
 
-        # sample or return n pairs
+        # return an empty list if no shared concepts exist
+        if not pairs:
+            return []
+
+        # determine the sample size, respecting max_size
+        sample_size = min(len(pairs), max_size)
+
+        # bootstrap sampling: draw concepts randomly WITH replacement
+        if random_concept_sample:
+            return random.choices(pairs, k=sample_size)
+
+        # regular sampling: draw concepts randomly WITHOUT replacement
         if len(pairs) > max_size:
             return random.sample(pairs, max_size)
+
         return pairs
 
     @staticmethod

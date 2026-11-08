@@ -8,10 +8,13 @@ import pandas as pd
 from tqdm import tqdm
 
 from cldf_repo import CLDFRepository
+from clustering import neighbor_joining
+from data_structures.guide_tree import TreeNode
 from data_structures.models import WordForm, WordTuple
 from config import CONFIG
 from learning import run_optimization_suite
 from msa import match_evaluator
+from msa.language_tree import build_lexstat_matrices, build_language_distance_matrix
 
 
 def _prepare_language_pair_work(
@@ -159,3 +162,30 @@ def run_full_clust_learn_set (
     print(results_df.to_string(index=False))
 
     return results_df
+
+def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
+    lexstat_model = build_lexstat_matrices(cldf, True, False)
+
+    lang_dist = build_language_distance_matrix(
+        cldf, lexstat_model, False,False, False
+    )
+
+    reference_tree = neighbor_joining.build_tree_nj(lang_dist)
+
+    diff_accu = 0
+    diff_count = 0
+
+    for trial in range(trials):
+
+        print(f"trial {trial}")
+
+        comp_lang_dist = build_language_distance_matrix(
+            cldf, lexstat_model, True, False, False
+        )
+        comp_tree = neighbor_joining.build_tree_nj(comp_lang_dist)
+
+        diff_accu += reference_tree.compare(comp_tree)
+        diff_count += 1
+
+    rf_diff = diff_accu / diff_count
+    return rf_diff

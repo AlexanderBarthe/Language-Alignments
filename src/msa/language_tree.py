@@ -90,12 +90,13 @@ def print_lexstat_matrices(cldf: CLDFRepository) -> GlobalLexstatModel:
 def build_language_distance_matrix(
     cldf: CLDFRepository,
     lexstat_model: GlobalLexstatModel,
+    random_concept_sample: bool = False,
     load_from_cache: bool = True,
     store_to_cache: bool = False,
 ) -> pd.DataFrame:
     language_list = sorted(cldf.get_all_language_names())
     language_distances = pd.DataFrame(0.0, index=language_list, columns=language_list)
-    if load_from_cache or store_to_cache:
+    if not random_concept_sample and (load_from_cache or store_to_cache) :
         cache, base_signature = _get_language_distance_cache_context(cldf)
     else:
         cache, base_signature = None, ""
@@ -114,7 +115,7 @@ def build_language_distance_matrix(
                     continue
 
         print("Determining distance from", lang1, "to", lang2)
-        avg_dist = _calculate_language_pair_distance(cldf, lexstat_model, lang1, lang2)
+        avg_dist = _calculate_language_pair_distance(cldf, lexstat_model, lang1, lang2, random_concept_sample)
         if store_to_cache:
             assert cache is not None and pair_signature is not None
             cache.store_distance(lang1, lang2, avg_dist, pair_signature)
@@ -151,13 +152,15 @@ def _calculate_language_pair_distance(
     lexstat_model: GlobalLexstatModel,
     lang1: str,
     lang2: str,
+    random_concept_sample: bool
 ) -> float:
     lang1_id = cldf.find_language_id(lang1)
     lang2_id = cldf.find_language_id(lang2)
     if lang1_id is None or lang2_id is None:
         return float("inf")
+
     word_tuples = cldf.get_same_meaning_pairs_as_tuples(
-        lang1_id, lang2_id, MAX_WORD_PAIRS_FOR_DISTANCE
+        lang1_id, lang2_id, MAX_WORD_PAIRS_FOR_DISTANCE, random_concept_sample
     )
 
     accu_dist = 0.0

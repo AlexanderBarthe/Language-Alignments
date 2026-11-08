@@ -28,7 +28,9 @@ def main():
 
     # language_tree.print_lexstat_matrices(cldf)
 
-    print(studies.get_simple_alignment_success_rate(cldf))
+    # print(studies.get_simple_alignment_success_rate(cldf))
+
+    print(studies.test_tree_stability(cldf))
 
     return
 
