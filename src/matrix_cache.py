@@ -21,6 +21,7 @@ class PairMatrixCache:
         )
         self.lexstat_dir = self.cache_root / "lexstat"
         self.distance_dir = self.cache_root / "language_distance"
+        self.alignment_dir = self.cache_root / "word_alignment"
 
     @classmethod
     def signature_for(cls, data, settings=None, calculation_version="1") -> str:
@@ -73,6 +74,19 @@ class PairMatrixCache:
                 for (sound_a, sound_b), score in valid_matrix.items()
             }
         self._store_payload("lexstat", lang_a, lang_b, signature, valid_matrix)
+
+    def load_alignments(self, lang_a: str, lang_b: str, signature: str) -> dict | None:
+        payload = self._load_payload("alignment", lang_a, lang_b, signature)
+        if payload is None:
+            return None
+        return self._valid_alignments(payload["value"])
+
+    def store_alignments(self, lang_a: str, lang_b: str, alignments: dict, signature: str) -> None:
+        valid_alignments = self._valid_alignments(alignments)
+        if valid_alignments is None:
+            raise ValueError(
+                "Alignment cache values must map word form pairs to distances in [0, 1]")
+        self._store_payload("alignment", lang_a, lang_b, signature, valid_alignments)
 
     def load_distance(self, lang_a: str, lang_b: str, signature: str) -> float | None:
         payload = self._load_payload("distance", lang_a, lang_b, signature)
@@ -156,6 +170,8 @@ class PairMatrixCache:
             directory = self.lexstat_dir
         elif kind == "distance":
             directory = self.distance_dir
+        elif kind == "alignment":
+            directory = self.alignment_dir
         else:
             raise ValueError(f"Unknown cache namespace: {kind}")
         pair_json = self._canonical_json(self._canonical_pair(lang_a, lang_b))
@@ -185,6 +201,29 @@ class PairMatrixCache:
                 return None
             result[sound_pair] = float(score)
         return result
+
+    @classmethod
+    def _valid_alignments(cls, alignments) -> dict | None:
+        if not isinstance(alignments, dict):
+            return None
+        result = {}
+        for word_pair, distance in alignments.items():
+            if (
+                not isinstance(word_pair, tuple)
+                or len(word_pair) != 2
+                or not all(cls._is_token_form(form) for form in word_pair)
+                or not cls._is_number(distance)
+            ):
+                return None
+            value = float(distance)
+            if math.isnan(value) or not 0.0 <= value <= 1.0:
+                return None
+            result[word_pair] = value
+        return result
+
+    @staticmethod
+    def _is_token_form(form) -> bool:
+        return isinstance(form, tuple) and all(isinstance(token, str) for token in form)
 
     @staticmethod
     def _is_number(value) -> bool:

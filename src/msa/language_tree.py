@@ -8,6 +8,7 @@ import cldf_repo
 from cldf_repo import CLDFRepository
 from clustering import neighbor_joining
 from data_structures.guide_tree import TreeNode
+from data_structures.models import WordForm
 from data_structures.profile import Profile
 from lexstat_scores import get_lexstat_score, _get_lexstat_cache_context
 from msa import match_evaluator, profile_alignment_algorithm
@@ -27,7 +28,7 @@ def build(
     cldf = cldf_repo.CLDFRepository(ds)
     lexstat_model = build_lexstat_matrices(cldf, load_from_cache, store_to_cache)
     lang_dist = build_language_distance_matrix(
-        cldf, lexstat_model, load_from_cache, store_to_cache
+        cldf, lexstat_model, False, load_from_cache, store_to_cache
     )
 
     tree = neighbor_joining.build_tree_nj(lang_dist)
@@ -96,7 +97,7 @@ def build_language_distance_matrix(
 ) -> pd.DataFrame:
     language_list = sorted(cldf.get_all_language_names())
     language_distances = pd.DataFrame(0.0, index=language_list, columns=language_list)
-    if not random_concept_sample and (load_from_cache or store_to_cache) :
+    if load_from_cache or store_to_cache:
         cache, base_signature = _get_language_distance_cache_context(cldf)
     else:
         cache, base_signature = None, ""
@@ -107,16 +108,18 @@ def build_language_distance_matrix(
             assert base_signature is not None
             lexstat_matrix = lexstat_model.get_matrix(lang1, lang2)
             pair_signature = _language_distance_pair_signature(cache, base_signature, lexstat_matrix)
-            if load_from_cache and not store_to_cache:
+            if not random_concept_sample and load_from_cache and not store_to_cache:
                 cached_distance = cache.load_distance(lang1, lang2, pair_signature)
                 if cached_distance is not None:
                     language_distances.at[lang1, lang2] = cached_distance
                     language_distances.at[lang2, lang1] = cached_distance
                     continue
 
-        print("Determining distance from", lang1, "to", lang2)
-        avg_dist = _calculate_language_pair_distance(cldf, lexstat_model, lang1, lang2, random_concept_sample)
-        if store_to_cache:
+        avg_dist = _calculate_language_pair_distance(
+            cldf, lexstat_model, lang1, lang2,
+            cache, pair_signature, load_from_cache, store_to_cache, random_concept_sample
+        )
+        if not random_concept_sample and store_to_cache:
             assert cache is not None and pair_signature is not None
             cache.store_distance(lang1, lang2, avg_dist, pair_signature)
         language_distances.at[lang1, lang2] = avg_dist
@@ -152,7 +155,11 @@ def _calculate_language_pair_distance(
     lexstat_model: GlobalLexstatModel,
     lang1: str,
     lang2: str,
-    random_concept_sample: bool
+    cache: PairMatrixCache | None = None,
+    pair_signature: str | None = None,
+    load_from_cache: bool = False,
+    store_to_cache: bool = False,
+    random_concept_sample: bool = False,
 ) -> float:
     lang1_id = cldf.find_language_id(lang1)
     lang2_id = cldf.find_language_id(lang2)
@@ -163,16 +170,30 @@ def _calculate_language_pair_distance(
         lang1_id, lang2_id, MAX_WORD_PAIRS_FOR_DISTANCE, random_concept_sample
     )
 
+    cached_distances: dict[tuple[WordForm, WordForm], float] = {}
+    if cache is not None and pair_signature is not None and load_from_cache:
+        cached_distances = cache.load_alignments(lang1, lang2, pair_signature) or {}
+
+    word_distances: dict[tuple[WordForm, WordForm], float] = {}
     accu_dist = 0.0
     count = 0
     for word_tuple in word_tuples:
         word1 = word_tuple[0].form
         word2 = word_tuple[1].form
-        _, dist, _, _ = match_evaluator.evaluate_single(
-            word1, word2, lang_a=lang1, lang_b=lang2, lexstat_model=lexstat_model
-        )
-        accu_dist += dist
+        word_pair = (word1, word2)
+        cached_distance = cached_distances.get(word_pair)
+        if cached_distance is None:
+            _, distance, _, _ = match_evaluator.evaluate_single(
+                word1, word2, lang_a=lang1, lang_b=lang2, lexstat_model=lexstat_model
+            )
+            word_distances[word_pair] = distance
+        else:
+            distance = cached_distance
+        accu_dist += distance
         count += 1
+
+    if cache is not None and pair_signature is not None and store_to_cache and word_distances:
+        cache.store_alignments(lang1, lang2, {**cached_distances, **word_distances}, pair_signature)
 
     return accu_dist / count if count > 0 else float("inf")
 
