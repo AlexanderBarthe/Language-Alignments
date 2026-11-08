@@ -2,8 +2,10 @@ import random
 from collections import defaultdict
 from collections.abc import Iterator
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from ensurepip import bootstrap
 from itertools import combinations
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
@@ -167,13 +169,12 @@ def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
     lexstat_model = build_lexstat_matrices(cldf, True, True)
 
     lang_dist = build_language_distance_matrix(
-        cldf, lexstat_model, False,False, False
+        cldf, lexstat_model, False,True, False
     )
 
     reference_tree = neighbor_joining.build_tree_nj(lang_dist)
 
-    diff_accu = 0
-    diff_count = 0
+    bootstrap_results = []
 
     for trial in range(trials):
 
@@ -184,8 +185,28 @@ def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
         )
         comp_tree = neighbor_joining.build_tree_nj(comp_lang_dist)
 
-        diff_accu += reference_tree.compare(comp_tree)
-        diff_count += 1
+        bootstrap_results.append(reference_tree.compare(comp_tree))
 
-    rf_diff = diff_accu / diff_count
-    return rf_diff
+    values = np.asarray(bootstrap_results, dtype=float)
+    values = values[np.isfinite(values)]
+
+    if len(values) == 0:
+        raise ValueError("No valid RF values found.")
+
+    identical_trees = np.count_nonzero(
+        np.isclose(values, 0.0)
+    )
+
+    metrics = {
+        "Mittelwert": np.mean(values),
+        "Median": np.median(values),
+        "Standard deviation": np.std(values, ddof=1),
+        "Top 2.5%": np.quantile(values, 0.025),
+        "Top 97.5%": np.quantile(values, 0.975),
+        "Identical Trees": identical_trees,
+        "Identical Trees Share": identical_trees / len(values)
+    }
+
+    for name, value in metrics.items():
+        print(f"{name}: {value:.4f}")
+

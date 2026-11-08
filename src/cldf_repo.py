@@ -1,3 +1,4 @@
+import math
 import random
 from collections import defaultdict
 
@@ -144,44 +145,55 @@ class CLDFRepository:
 
         return results
 
+    def get_usable_concepts(self, min_language_ratio: float = 0.9) -> list[ConceptName]:
+        total_languages = len(self._lang_id_to_name)
+        if total_languages == 0:
+            return []
+
+        languages_per_concept: dict[ConceptId, set[LangId]] = defaultdict(set)
+        for form in self.dataset.objects('FormTable'):
+            if not self._extract_segments(form):
+                continue
+            languages_per_concept[form.cldf.parameterReference].add(form.cldf.languageReference)
+
+        min_language_count = math.ceil(total_languages * min_language_ratio)
+        return sorted(
+            self._concept_id_to_name.get(concept_id, "Unknown_Concept")
+            for concept_id, concept_languages in languages_per_concept.items()
+            if len(concept_languages) >= min_language_count
+        )
+
     def get_same_meaning_pairs_as_tuples(
             self,
             lang1_id: LangId,
             lang2_id: LangId,
-            max_size: int = 200,
-            random_concept_sample: bool = False
+            sampled_concepts: list[str] | None = None,
+            max_size: int = 10000,
     ) -> list[tuple[WordTuple, WordTuple]]:
 
-        # resolve language names from ids
         lang1_name = self._lang_id_to_name.get(lang1_id)
         lang2_name = self._lang_id_to_name.get(lang2_id)
+
         if not lang1_name or not lang2_name:
             return []
 
-        # fetch word tuples for both languages
         words1 = self.get_word_tuples(languages=[lang1_name])
         words2 = self.get_word_tuples(languages=[lang2_name])
 
-        # index words by concept
         map1 = {w.concept: w for w in words1}
         map2 = {w.concept: w for w in words2}
 
-        # find shared concepts and build pairs
-        common_concepts = set(map1.keys()) & set(map2.keys())
+        if sampled_concepts is not None:
+            return [
+                (map1[concept], map2[concept])
+                for concept in sampled_concepts
+                if concept in map1 and concept in map2
+            ]
+
+        common_concepts = sorted(set(map1.keys()) & set(map2.keys()))
+
         pairs = [(map1[c], map2[c]) for c in common_concepts]
 
-        # return an empty list if no shared concepts exist
-        if not pairs:
-            return []
-
-        # determine the sample size, respecting max_size
-        sample_size = min(len(pairs), max_size)
-
-        # bootstrap sampling: draw concepts randomly WITH replacement
-        if random_concept_sample:
-            return random.choices(pairs, k=sample_size)
-
-        # regular sampling: draw concepts randomly WITHOUT replacement
         if len(pairs) > max_size:
             return random.sample(pairs, max_size)
 

@@ -1,3 +1,4 @@
+import random
 from itertools import combinations
 
 import pandas as pd
@@ -16,6 +17,7 @@ from msa.global_lexstat_model import GlobalLexstatModel
 from src.matrix_cache import PairMatrixCache
 
 MAX_WORD_PAIRS_FOR_DISTANCE = 10000
+USABLE_CONCEPT_LANGUAGE_RATIO = 0.9
 LANGUAGE_DISTANCE_CALCULATION_VERSION = "language-distance-pair-v1"
 
 
@@ -102,6 +104,10 @@ def build_language_distance_matrix(
     else:
         cache, base_signature = None, ""
 
+    sampled_concepts = None
+    if random_concept_sample:
+        sampled_concepts = _get_bootstrap_concept_sample(cldf)
+
     for lang1, lang2 in combinations(language_list, 2):
         pair_signature = None
         if cache is not None:
@@ -117,7 +123,7 @@ def build_language_distance_matrix(
 
         avg_dist = _calculate_language_pair_distance(
             cldf, lexstat_model, lang1, lang2,
-            cache, pair_signature, load_from_cache, store_to_cache, random_concept_sample
+            cache, pair_signature, load_from_cache, store_to_cache, sampled_concepts
         )
         if not random_concept_sample and store_to_cache:
             assert cache is not None and pair_signature is not None
@@ -136,6 +142,11 @@ def _get_language_distance_cache_context(cldf: CLDFRepository) -> tuple[PairMatr
         calculation_version=LANGUAGE_DISTANCE_CALCULATION_VERSION,
     )
     return cache, signature
+
+
+def _get_bootstrap_concept_sample(cldf: CLDFRepository) -> list[str]:
+    usable_concepts = cldf.get_usable_concepts(USABLE_CONCEPT_LANGUAGE_RATIO)
+    return random.choices(usable_concepts, k=len(usable_concepts))
 
 
 def _language_distance_pair_signature(
@@ -159,7 +170,7 @@ def _calculate_language_pair_distance(
     pair_signature: str | None = None,
     load_from_cache: bool = False,
     store_to_cache: bool = False,
-    random_concept_sample: bool = False,
+    sampled_concepts: list[str] | None = None,
 ) -> float:
     lang1_id = cldf.find_language_id(lang1)
     lang2_id = cldf.find_language_id(lang2)
@@ -167,33 +178,34 @@ def _calculate_language_pair_distance(
         return float("inf")
 
     word_tuples = cldf.get_same_meaning_pairs_as_tuples(
-        lang1_id, lang2_id, MAX_WORD_PAIRS_FOR_DISTANCE, random_concept_sample
+        lang1_id, lang2_id, sampled_concepts, MAX_WORD_PAIRS_FOR_DISTANCE
     )
 
     cached_distances: dict[tuple[WordForm, WordForm], float] = {}
     if cache is not None and pair_signature is not None and load_from_cache:
         cached_distances = cache.load_alignments(lang1, lang2, pair_signature) or {}
 
-    word_distances: dict[tuple[WordForm, WordForm], float] = {}
+    # starts from the cache so computed values are reused for duplicate
+    # sampled concepts within this call
+    word_distances: dict[tuple[WordForm, WordForm], float] = dict(cached_distances)
     accu_dist = 0.0
     count = 0
     for word_tuple in word_tuples:
         word1 = word_tuple[0].form
         word2 = word_tuple[1].form
         word_pair = (word1, word2)
-        cached_distance = cached_distances.get(word_pair)
-        if cached_distance is None:
+        distance = word_distances.get(word_pair)
+        if distance is None:
             _, distance, _, _ = match_evaluator.evaluate_single(
                 word1, word2, lang_a=lang1, lang_b=lang2, lexstat_model=lexstat_model
             )
             word_distances[word_pair] = distance
-        else:
-            distance = cached_distance
         accu_dist += distance
         count += 1
 
-    if cache is not None and pair_signature is not None and store_to_cache and word_distances:
-        cache.store_alignments(lang1, lang2, {**cached_distances, **word_distances}, pair_signature)
+    if cache is not None and pair_signature is not None and store_to_cache \
+            and len(word_distances) > len(cached_distances):
+        cache.store_alignments(lang1, lang2, word_distances, pair_signature)
 
     return accu_dist / count if count > 0 else float("inf")
 

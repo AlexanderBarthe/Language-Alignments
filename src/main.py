@@ -30,7 +30,7 @@ def main():
 
     # print(studies.get_simple_alignment_success_rate(cldf))
 
-    print(studies.test_tree_stability(cldf))
+    studies.test_tree_stability(cldf)
 
     return
 
