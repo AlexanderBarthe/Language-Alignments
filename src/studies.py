@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from cldf_repo import CLDFRepository
 from clustering import neighbor_joining
+from data_structures import guide_tree
 from data_structures.guide_tree import TreeNode
 from data_structures.models import WordForm, WordTuple
 from config import CONFIG
@@ -175,17 +176,20 @@ def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
     reference_tree = neighbor_joining.build_tree_nj(lang_dist)
 
     bootstrap_results = []
+    bootstrap_trees = []
 
     for trial in range(trials):
 
         print(f"Trial {trial}")
 
-        comp_lang_dist = build_language_distance_matrix(
+        bootstrap_lang_dist = build_language_distance_matrix(
             cldf, lexstat_model, True, True, True
         )
-        comp_tree = neighbor_joining.build_tree_nj(comp_lang_dist)
+        bootstrap_tree = neighbor_joining.build_tree_nj(bootstrap_lang_dist)
 
-        bootstrap_results.append(reference_tree.compare(comp_tree))
+        bootstrap_results.append(reference_tree.compare(bootstrap_tree))
+        bootstrap_trees.append(bootstrap_tree)
+
 
     values = np.asarray(bootstrap_results, dtype=float)
     values = values[np.isfinite(values)]
@@ -198,7 +202,7 @@ def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
     )
 
     metrics = {
-        "Mittelwert": np.mean(values),
+        "Mean": np.mean(values),
         "Median": np.median(values),
         "Standard deviation": np.std(values, ddof=1),
         "Top 2.5%": np.quantile(values, 0.025),
@@ -209,4 +213,11 @@ def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
 
     for name, value in metrics.items():
         print(f"{name}: {value:.4f}")
+
+    split_results = guide_tree.TreeNode.calculate_split_support(
+        reference_tree,
+        bootstrap_trees,
+    )
+
+    print(split_results.to_string(index=False))
 
