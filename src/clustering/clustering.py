@@ -83,7 +83,7 @@ def run_affinity_propagation_clustering(df_matrix: pd.DataFrame, damping: float 
     # affinity propagation needs similarity matrix
     similarities = -df_matrix.values
 
-    ap = AffinityPropagation(affinity='precomputed', damping=damping, random_state=42)
+    ap = AffinityPropagation(affinity='precomputed', damping=damping, random_state=101)
     cluster_labels = ap.fit_predict(similarities)
 
     results_df = df_matrix.index.to_frame(index=False)

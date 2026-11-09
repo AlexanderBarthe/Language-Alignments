@@ -34,11 +34,11 @@ def main():
 
     _, tree_blump = language_tree.build(cldf_blumpanotacana, list())
     print(tree_blump)
-    studies.test_tree_stability(cldf_blumpanotacana)
+    studies.find_sound_equivalences(cldf_blumpanotacana)
 
     _, tree_northperu = language_tree.build(cldf_northperu, list())
     print(tree_northperu)
-    studies.test_tree_stability(cldf_northperu)
+    studies.find_sound_equivalences(cldf_northperu)
 
     return
 

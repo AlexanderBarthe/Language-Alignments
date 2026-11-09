@@ -48,7 +48,7 @@ def _prepare_language_pair_work(
 def _iter_language_pair_work(
         words_by_language: dict[str, list[WordTuple]],
         words_by_concept: dict[str, dict[str, WordTuple]],
-        eligible_language_pairs: list[tuple[str, str]],
+        eligible_language_pairs: list[tuple[str, str]]
 ) -> Iterator[tuple[list[tuple[WordTuple, WordTuple]], list[WordForm]]]:
     for lang1_name, lang2_name in eligible_language_pairs:
         words1_by_concept = words_by_concept[lang1_name]
@@ -127,7 +127,7 @@ def run_full_clust_learn_set (
         output_csv_path: str = "clustering_evaluation_results.csv",
         n_trials: int = 50,
         sample_ratio: float = 0.2,
-        seed: int = 100
+        seed: int = 101
 ) -> pd.DataFrame:
     sequences_sample = cldf.get_word_tuples(sample_ratio=sample_ratio, seed=seed)
 
@@ -183,7 +183,7 @@ def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
         print(f"Trial {trial}")
 
         bootstrap_lang_dist = build_language_distance_matrix(
-            cldf, lexstat_model, True, True, True
+            cldf, lexstat_model, True, True, True, 101+trial
         )
         bootstrap_tree = neighbor_joining.build_tree_nj(bootstrap_lang_dist)
 
