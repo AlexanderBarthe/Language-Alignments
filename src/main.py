@@ -32,11 +32,11 @@ def main():
 
     # print(studies.get_simple_alignment_success_rate(cldf))
 
-    _, tree_blump = language_tree.build(cldf_blumpanotacana, list())
+    _, tree_blump = language_tree.build(cldf_blumpanotacana, list(), load_from_cache=True)
     print(tree_blump)
     studies.test_tree_stability(cldf_blumpanotacana)
 
-    _, tree_northperu = language_tree.build(cldf_northperu, list())
+    _, tree_northperu = language_tree.build(cldf_northperu, list(), load_from_cache=True)
     print(tree_northperu)
     studies.test_tree_stability(cldf_northperu)
 

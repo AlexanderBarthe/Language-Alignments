@@ -147,7 +147,7 @@ def _get_language_distance_cache_context(cldf: CLDFRepository) -> tuple[PairMatr
 
 
 def _get_bootstrap_concept_sample(cldf: CLDFRepository) -> list[str]:
-    usable_concepts = cldf.get_usable_concepts(USABLE_CONCEPT_LANGUAGE_RATIO)
+    usable_concepts = cldf.get_usable_concepts()
     return random.choices(usable_concepts, k=len(usable_concepts))
 
 
