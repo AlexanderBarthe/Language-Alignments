@@ -8,6 +8,7 @@ from config import CONFIG
 import cldf_repo
 from cldf_repo import CLDFRepository
 from clustering import neighbor_joining
+from config import CONFIG
 from data_structures.guide_tree import TreeNode
 from data_structures.models import WordForm
 from data_structures.profile import Profile
@@ -98,6 +99,7 @@ def build_language_distance_matrix(
     random_concept_sample: bool = False,
     load_from_cache: bool = True,
     store_to_cache: bool = False,
+    random_state: int = 101
 ) -> pd.DataFrame:
     language_list = sorted(cldf.get_all_language_names())
     language_distances = pd.DataFrame(0.0, index=language_list, columns=language_list)
@@ -108,7 +110,7 @@ def build_language_distance_matrix(
 
     sampled_concepts = None
     if random_concept_sample:
-        sampled_concepts = _get_bootstrap_concept_sample(cldf)
+        sampled_concepts = _get_bootstrap_concept_sample(cldf, random_state)
 
     for lang1, lang2 in combinations(language_list, 2):
         pair_signature = None
@@ -146,8 +148,10 @@ def _get_language_distance_cache_context(cldf: CLDFRepository) -> tuple[PairMatr
     return cache, signature
 
 
-def _get_bootstrap_concept_sample(cldf: CLDFRepository) -> list[str]:
+def _get_bootstrap_concept_sample(cldf: CLDFRepository, random_state: int = 101) -> list[str]:
     usable_concepts = cldf.get_usable_concepts()
+
+    random.seed(random_state)
     return random.choices(usable_concepts, k=len(usable_concepts))
 
 

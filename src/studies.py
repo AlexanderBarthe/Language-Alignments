@@ -1,8 +1,7 @@
 import random
-from collections import defaultdict
+from collections import defaultdict, Counter
 from collections.abc import Iterator
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-from ensurepip import bootstrap
 from itertools import combinations
 
 import numpy as np
@@ -11,12 +10,12 @@ from tqdm import tqdm
 
 from cldf_repo import CLDFRepository
 from clustering import neighbor_joining
-from data_structures import guide_tree
-from data_structures.guide_tree import TreeNode
-from data_structures.models import WordForm, WordTuple
 from config import CONFIG
+from data_structures import guide_tree
+from data_structures.models import WordForm, WordTuple
+from data_structures.profile import Profile
 from learning import run_optimization_suite
-from msa import match_evaluator
+from msa import match_evaluator, language_tree
 from msa.language_tree import build_lexstat_matrices, build_language_distance_matrix
 
 
@@ -49,7 +48,7 @@ def _prepare_language_pair_work(
 def _iter_language_pair_work(
         words_by_language: dict[str, list[WordTuple]],
         words_by_concept: dict[str, dict[str, WordTuple]],
-        eligible_language_pairs: list[tuple[str, str]],
+        eligible_language_pairs: list[tuple[str, str]]
 ) -> Iterator[tuple[list[tuple[WordTuple, WordTuple]], list[WordForm]]]:
     for lang1_name, lang2_name in eligible_language_pairs:
         words1_by_concept = words_by_concept[lang1_name]
@@ -119,7 +118,8 @@ def get_simple_alignment_success_rate(cldf_repo: CLDFRepository) -> None | float
     if comparisons == 0:
         return None
 
-    return word_matches / comparisons
+    print(f"{word_matches} / {comparisons}")
+    print (word_matches / comparisons)
 
 
 def run_full_clust_learn_set (
@@ -127,7 +127,7 @@ def run_full_clust_learn_set (
         output_csv_path: str = "clustering_evaluation_results.csv",
         n_trials: int = 50,
         sample_ratio: float = 0.2,
-        seed: int = 100
+        seed: int = 101
 ) -> pd.DataFrame:
     sequences_sample = cldf.get_word_tuples(sample_ratio=sample_ratio, seed=seed)
 
@@ -166,7 +166,7 @@ def run_full_clust_learn_set (
 
     return results_df
 
-def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
+def test_tree_stability(cldf: CLDFRepository, print_tree: bool = False, trials: int = 500):
     lexstat_model = build_lexstat_matrices(cldf, True, True)
 
     lang_dist = build_language_distance_matrix(
@@ -174,6 +174,9 @@ def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
     )
 
     reference_tree = neighbor_joining.build_tree_nj(lang_dist)
+
+    if print_tree:
+        print(reference_tree)
 
     bootstrap_results = []
     bootstrap_trees = []
@@ -183,7 +186,7 @@ def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
         print(f"Trial {trial}")
 
         bootstrap_lang_dist = build_language_distance_matrix(
-            cldf, lexstat_model, True, True, True
+            cldf, lexstat_model, True, True, True, 101+trial
         )
         bootstrap_tree = neighbor_joining.build_tree_nj(bootstrap_lang_dist)
 
@@ -220,4 +223,61 @@ def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
     )
 
     print(split_results.to_string(index=False))
+
+def find_sound_equivalences(cldf: CLDFRepository):
+
+    concepts = cldf.get_usable_concepts()
+
+    profiles, _ = language_tree.build(cldf, concepts, True, True)
+
+    sound_ratio = _analyze_sound_matches(profiles)
+    print(sound_ratio.to_string(index=False))
+
+def _analyze_sound_matches(profiles: list[Profile]):
+
+    sound_matches = defaultdict(Counter)
+    max_possible_matches = Counter()
+
+    for profile in profiles:
+        for column in profile.get_columns():
+
+            sounds = [
+                sound for sound in column.values()
+                if sound not in {"-", " "}
+            ]
+
+            sound_counts = Counter(sounds)
+            total_sounds = len(sounds)
+
+            for sound_a, count_a in sound_counts.items():
+
+                max_possible_matches[sound_a] += count_a * (total_sounds - 1)
+
+                for sound_b, count_b in sound_counts.items():
+
+                    if sound_a == sound_b:
+                        amount = count_a * (count_a - 1)
+                    else:
+                        amount = count_a * count_b
+
+                    sound_matches[sound_a][sound_b] += amount
+
+    all_sounds = sorted(sound_matches.keys())
+
+    matches = pd.DataFrame(
+        [
+            [sound_matches[a][b] for b in all_sounds]
+            for a in all_sounds
+        ],
+        index=all_sounds,
+        columns=all_sounds,
+        dtype=int
+    )
+
+    maximum = pd.Series(max_possible_matches, dtype=int)
+
+    return matches.div(maximum, axis=0).fillna(0)
+
+
+
 

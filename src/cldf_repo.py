@@ -226,7 +226,8 @@ class CLDFRepository:
             lang2_id: LangId,
             sampled_concepts: list[str] | None = None,
             max_size: int = 10000,
-            usable_only: bool = True
+            usable_only: bool = True,
+            random_state: int = 101
     ) -> list[tuple[WordTuple, WordTuple]]:
 
         lang1_name = self._lang_id_to_name.get(lang1_id)
@@ -259,6 +260,8 @@ class CLDFRepository:
 
         pairs = [(map1[c], map2[c]) for c in common_concepts]
 
+        random.seed(random_state)
+
         if len(pairs) > max_size:
             return random.sample(pairs, max_size)
 
@@ -266,13 +269,16 @@ class CLDFRepository:
 
     @staticmethod
     def get_noise_sample_for_language_pair(words_lang_a: list[WordTuple], words_lang_b: list[WordTuple],
-                                           sample_size: int = 1000) -> list[tuple[WordTuple, WordTuple]]:
+                                           sample_size: int = 1000,
+                                           random_state: int = 101) -> list[tuple[WordTuple, WordTuple]]:
         noise_pairs = []
         attempts = 0
         max_attempts = sample_size * 20
 
         if not words_lang_a or not words_lang_b:
             return []
+
+        random.seed(random_state)
 
         while len(noise_pairs) < sample_size and attempts < max_attempts:
             word_a = random.choice(words_lang_a)
