@@ -38,3 +38,6 @@ hierarch_tree_cutoff_frac_low = 0.05
 hierarch_tree_cutoff_frac_high = 0.95
 dbscan_epsilon_low = 0.01
 dbscan_epsilon_high = 2
+
+[cldf]
+min_concept_coverage = 0.9

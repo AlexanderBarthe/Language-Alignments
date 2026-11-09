@@ -5,6 +5,7 @@ from collections import defaultdict
 from pycldf import Dataset
 from pycldf.orm import Language
 
+from config import CONFIG
 from data_structures.phonemes import tokenize
 from src.data_structures.models import (
     ConceptId,
@@ -25,6 +26,11 @@ class CLDFRepository:
         self._concept_id_to_name: dict[ConceptId, ConceptName] = {}
         self._lang_name_to_id: dict[str, LangId] = {}
         self._concept_name_to_id: dict[str, ConceptId] = {}
+        self._usable_concept_ids: set[ConceptId] = set()
+
+        self.min_concept_coverage = CONFIG['cldf']['min_concept_coverage']
+        if not 0.0 <= self.min_concept_coverage <= 1.0:
+            self.min_concept_coverage = 0.9
 
         if preload_caches:
             self.refresh_caches()
@@ -33,6 +39,7 @@ class CLDFRepository:
         # build language lookups
         self._lang_id_to_name.clear()
         self._lang_name_to_id.clear()
+        self._usable_concept_ids = set()
 
         for lang in self.dataset.objects('LanguageTable'):
             name = lang.cldf.name if lang.cldf.name else lang.id
@@ -66,12 +73,18 @@ class CLDFRepository:
     def find_language_id(self, language_name: LangName) -> LangId | None:
         return self._lang_name_to_id.get(language_name.lower())
 
-    def get_all_words_for_language(self, language_name: LangName) -> list[WordForm]:
-        tuples = self.get_words_for_language_as_tuples(language_name)
+    def get_all_words_for_language(self, language_name: LangName, usable_only: bool = True) -> list[WordForm]:
+        tuples = self.get_words_for_language_as_tuples(
+            language_name,
+            usable_only=usable_only
+        )
         return [word.form for word in tuples]
 
-    def get_words_for_language_as_tuples(self, language_name: LangName) -> list[WordTuple]:
-        return self.get_word_tuples(languages=[language_name])
+    def get_words_for_language_as_tuples(self, language_name: LangName, usable_only: bool = True) -> list[WordTuple]:
+        return self.get_word_tuples(
+            languages=[language_name],
+            usable_only=usable_only
+        )
 
     def get_all_concept_names(self) -> list[ConceptName]:
         return list(self._concept_id_to_name.values())
@@ -79,27 +92,73 @@ class CLDFRepository:
     def find_concept_id(self, concept_string: ConceptName) -> ConceptId | None:
         return self._concept_name_to_id.get(concept_string.lower())
 
-    def get_all_words_for_concept(self, concept_string: ConceptName) -> list[WordForm]:
-        tuples = self.get_words_for_concept_as_tuples(concept_string)
+    def get_all_words_for_concept(self, concept_string: ConceptName, usable_only: bool = True) -> list[WordForm]:
+        tuples = self.get_words_for_concept_as_tuples(
+            concept_string,
+            usable_only=usable_only
+        )
         return [word.form for word in tuples]
 
-    def get_words_for_concept_as_tuples(self, concept_string: ConceptName) -> list[WordTuple]:
-        return self.get_word_tuples(concepts=[concept_string])
+    def get_words_for_concept_as_tuples(self, concept_string: ConceptName, usable_only: bool = True) -> list[WordTuple]:
+        return self.get_word_tuples(
+            concepts=[concept_string],
+            usable_only=usable_only
+        )
 
-    def get_words_grouped_by_concept(self) -> dict[ConceptName, list[WordTuple]]:
+    def get_words_grouped_by_concept(self, usable_only: bool = True) -> dict[ConceptName, list[WordTuple]]:
         grouped_words = defaultdict(list)
-        for word_tuple in self.get_word_tuples():
+
+        for word_tuple in self.get_word_tuples(usable_only=usable_only):
             grouped_words[word_tuple.concept].append(word_tuple)
+
         return dict(grouped_words)
 
-    def find_word(self, language_name: LangName, concept_string: ConceptName) -> WordTuple | None:
-        results = self.get_word_tuples(languages=[language_name], concepts=[concept_string])
+    def find_word(self, language_name: LangName, concept_string: ConceptName, usable_only: bool = True ) -> WordTuple | None:
+        results = self.get_word_tuples(
+            languages=[language_name],
+            concepts=[concept_string],
+            usable_only=usable_only
+        )
+
         if results:
             return results[0]
+
         return None
 
+    def _get_usable_concept_ids(self) -> set[ConceptId]:
+        if len(self._usable_concept_ids) > 0:
+            return self._usable_concept_ids
+
+        total_languages = len(self._lang_id_to_name)
+
+        if total_languages == 0:
+            self._usable_concept_ids = set()
+            return self._usable_concept_ids
+
+        languages_per_concept: dict[ConceptId, set[LangId]] = defaultdict(set)
+
+        for form in self.dataset.objects('FormTable'):
+            if not self._extract_segments(form):
+                continue
+
+            languages_per_concept[form.cldf.parameterReference].add(
+                form.cldf.languageReference
+            )
+
+        min_language_count = math.ceil(
+            total_languages * self.min_concept_coverage
+        )
+
+        self._usable_concept_ids = {
+            concept_id
+            for concept_id, concept_languages in languages_per_concept.items()
+            if len(concept_languages) >= min_language_count
+        }
+
+        return self._usable_concept_ids
+
     def get_word_tuples(self, languages: list[LangName] | None = None, concepts: list[ConceptName] | None = None,
-                        sample_ratio: float = 1.0, seed: int = 101) -> list[WordTuple]:
+                        sample_ratio: float = 1.0, seed: int = 101, usable_only: bool = True) -> list[WordTuple]:
         # resolve language filters
         allowed_lang_ids = None
         if languages is not None:
@@ -111,6 +170,13 @@ class CLDFRepository:
         if concepts is not None:
             allowed_concept_ids = {self.find_concept_id(concept) for concept in concepts}
             allowed_concept_ids.discard(None)
+
+        # resolve usable concepts
+        usable_concept_ids = (
+            self._get_usable_concept_ids()
+            if usable_only
+            else None
+        )
 
         # apply sampling if no strict language filter was provided
         if sample_ratio < 1.0 and allowed_lang_ids is None:
@@ -132,6 +198,9 @@ class CLDFRepository:
             if allowed_concept_ids is not None and concept_id not in allowed_concept_ids:
                 continue
 
+            if usable_concept_ids is not None and concept_id not in usable_concept_ids:
+                continue
+
             word_form = self._extract_segments(form)
             if word_form:
                 lang_name = self._lang_id_to_name.get(lang_id, "Unknown_Language")
@@ -145,22 +214,10 @@ class CLDFRepository:
 
         return results
 
-    def get_usable_concepts(self, min_language_ratio: float = 0.9) -> list[ConceptName]:
-        total_languages = len(self._lang_id_to_name)
-        if total_languages == 0:
-            return []
-
-        languages_per_concept: dict[ConceptId, set[LangId]] = defaultdict(set)
-        for form in self.dataset.objects('FormTable'):
-            if not self._extract_segments(form):
-                continue
-            languages_per_concept[form.cldf.parameterReference].add(form.cldf.languageReference)
-
-        min_language_count = math.ceil(total_languages * min_language_ratio)
+    def get_usable_concepts(self) -> list[ConceptName]:
         return sorted(
             self._concept_id_to_name.get(concept_id, "Unknown_Concept")
-            for concept_id, concept_languages in languages_per_concept.items()
-            if len(concept_languages) >= min_language_count
+            for concept_id in self._get_usable_concept_ids()
         )
 
     def get_same_meaning_pairs_as_tuples(
@@ -169,6 +226,7 @@ class CLDFRepository:
             lang2_id: LangId,
             sampled_concepts: list[str] | None = None,
             max_size: int = 10000,
+            usable_only: bool = True
     ) -> list[tuple[WordTuple, WordTuple]]:
 
         lang1_name = self._lang_id_to_name.get(lang1_id)
@@ -177,8 +235,15 @@ class CLDFRepository:
         if not lang1_name or not lang2_name:
             return []
 
-        words1 = self.get_word_tuples(languages=[lang1_name])
-        words2 = self.get_word_tuples(languages=[lang2_name])
+        words1 = self.get_word_tuples(
+            languages=[lang1_name],
+            usable_only=usable_only
+        )
+
+        words2 = self.get_word_tuples(
+            languages=[lang2_name],
+            usable_only=usable_only
+        )
 
         map1 = {w.concept: w for w in words1}
         map2 = {w.concept: w for w in words2}

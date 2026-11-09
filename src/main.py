@@ -15,9 +15,11 @@ lang_dir = os.path.join(project_root, "languages")
 
 def main():
 
-    ds = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
+    ds_blumpanotacana = pycldf.Dataset.from_metadata("./languages/blumpanotacana/cldf/cldf-metadata.json")
+    ds_northperu = pycldf.Dataset.from_metadata("./languages/northperulex/cldf/cldf-metadata.json")
 
-    cldf = cldf_repo.CLDFRepository(ds)
+    cldf_blumpanotacana = cldf_repo.CLDFRepository(ds_blumpanotacana)
+    cldf_northperu = cldf_repo.CLDFRepository(ds_northperu)
 
     #studies.get_simple_alignment_success_rate(cldf)
 
@@ -30,7 +32,13 @@ def main():
 
     # print(studies.get_simple_alignment_success_rate(cldf))
 
-    studies.test_tree_stability(cldf)
+    _, tree_blump = language_tree.build(cldf_blumpanotacana, list())
+    print(tree_blump)
+    studies.test_tree_stability(cldf_blumpanotacana)
+
+    _, tree_northperu = language_tree.build(cldf_northperu, list())
+    print(tree_northperu)
+    studies.test_tree_stability(cldf_northperu)
 
     return
 

@@ -22,12 +22,11 @@ LANGUAGE_DISTANCE_CALCULATION_VERSION = "language-distance-pair-v1"
 
 
 def build(
-    ds: Dataset,
-    concept: str,
+    cldf: CLDFRepository,
+    concepts: list[str],
     load_from_cache: bool = True,
     store_to_cache: bool = False,
-) -> tuple[Profile, TreeNode]:
-    cldf = cldf_repo.CLDFRepository(ds)
+) -> tuple[list[Profile], TreeNode]:
     lexstat_model = build_lexstat_matrices(cldf, load_from_cache, store_to_cache)
     lang_dist = build_language_distance_matrix(
         cldf, lexstat_model, False, load_from_cache, store_to_cache
@@ -35,9 +34,12 @@ def build(
 
     tree = neighbor_joining.build_tree_nj(lang_dist)
 
-    profile = get_profile(tree, cldf, lexstat_model, concept)
+    profiles = []
 
-    return profile, tree
+    for concept in concepts:
+        profiles.append(get_profile(tree, cldf, lexstat_model, concept))
+
+    return profiles, tree
 
 def build_lexstat_matrices(
     cldf: CLDFRepository,
