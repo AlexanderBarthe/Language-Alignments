@@ -68,9 +68,9 @@ def run_infomap_clustering(df_matrix: pd.DataFrame, dist_threshold: float = 0.5)
     return results_df
 
 
-def run_kmedoids_clustering(df_matrix: pd.DataFrame, n_clusters: int = 10) -> pd.DataFrame:
+def run_kmedoids_clustering(df_matrix: pd.DataFrame, n_clusters: int = 10, random_state: int = 101) -> pd.DataFrame:
     # run k-medoids with precomputed distance matrix
-    kmedoids = KMedoids(n_clusters=n_clusters, metric='precomputed', init='k-medoids++')
+    kmedoids = KMedoids(n_clusters=n_clusters, metric='precomputed', init='k-medoids++', random_state=random_state)
     cluster_labels = kmedoids.fit_predict(df_matrix.values)
 
     results_df = df_matrix.index.to_frame(index=False)

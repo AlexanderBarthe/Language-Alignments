@@ -21,6 +21,7 @@ from msa.language_tree import build_lexstat_matrices, build_language_distance_ma
 
 def _prepare_language_pair_work(
         cldf_repo: CLDFRepository,
+        seed: int = 101
 ) -> tuple[int, Iterator[tuple[list[tuple[WordTuple, WordTuple]], list[WordForm]]]]:
     words_by_language: dict[str, list[WordTuple]] = defaultdict(list)
     for word in cldf_repo.get_word_tuples():
@@ -42,14 +43,16 @@ def _prepare_language_pair_work(
             eligible_language_pairs.append((lang1_name, lang2_name))
 
     return len(eligible_language_pairs), _iter_language_pair_work(
-        words_by_language, words_by_concept, eligible_language_pairs)
+        words_by_language, words_by_concept, eligible_language_pairs, seed)
 
 
 def _iter_language_pair_work(
         words_by_language: dict[str, list[WordTuple]],
         words_by_concept: dict[str, dict[str, WordTuple]],
-        eligible_language_pairs: list[tuple[str, str]]
+        eligible_language_pairs: list[tuple[str, str]],
+        random_state: int = 101
 ) -> Iterator[tuple[list[tuple[WordTuple, WordTuple]], list[WordForm]]]:
+    count = 0
     for lang1_name, lang2_name in eligible_language_pairs:
         words1_by_concept = words_by_concept[lang1_name]
         words2_by_concept = words_by_concept[lang2_name]
@@ -59,8 +62,11 @@ def _iter_language_pair_work(
             for concept in shared_concepts
         ]
 
+        rng = random.Random(random_state + count)
+        count += 1
+
         if len(word_pairs) > 200:
-            word_pairs = random.sample(word_pairs, 200)
+            word_pairs = rng.sample(word_pairs, 200)
         candidate_forms = [word.form for word in words_by_language[lang2_name]]
         yield word_pairs, candidate_forms
 
@@ -80,11 +86,11 @@ def _score_language_pair(word_pairs: list[tuple[WordTuple, WordTuple]],
     return matches, comparisons
 
 
-def get_simple_alignment_success_rate(cldf_repo: CLDFRepository) -> None | float:
+def get_simple_alignment_success_rate(cldf_repo: CLDFRepository, seed: int = 101) -> None | float:
     word_matches = 0
     comparisons = 0
     max_workers = CONFIG["alignment"]["mt_workers"]
-    eligible_pair_count, work_items = _prepare_language_pair_work(cldf_repo)
+    eligible_pair_count, work_items = _prepare_language_pair_work(cldf_repo, seed)
     if eligible_pair_count == 0:
         return None
 
@@ -151,7 +157,8 @@ def run_full_clust_learn_set (
         sequences=sequences_sample,
         algorithms=algos_to_test,
         modes=modes_to_test,
-        n_trials=n_trials
+        n_trials=n_trials,
+        seed=seed
     )
 
     results_df = results_df.sort_values(by=['algorithm', 'mode'])
@@ -186,7 +193,7 @@ def test_tree_stability(cldf: CLDFRepository, print_tree: bool = False, trials: 
         print(f"Trial {trial}")
 
         bootstrap_lang_dist = build_language_distance_matrix(
-            cldf, lexstat_model, True, True, True, 101+trial
+            cldf, lexstat_model, True, True, True, random_state=101+trial
         )
         bootstrap_tree = neighbor_joining.build_tree_nj(bootstrap_lang_dist)
 

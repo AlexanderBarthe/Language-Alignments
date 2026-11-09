@@ -1,5 +1,6 @@
 import optuna
 import pandas as pd
+from optuna.samplers import TPESampler
 
 from src.clustering import clustering
 from src.data_structures.models import ScoringParams
@@ -82,7 +83,7 @@ def create_unified_objective(sequences, algo_name: str, opt_alignment: bool, opt
     return objective
 
 
-def run_optimization_suite(sequences, algorithms: list[str], modes: list[str], n_trials: int = 50) -> pd.DataFrame:
+def run_optimization_suite(sequences, algorithms: list[str], modes: list[str], n_trials: int = 50, seed: int = 101) -> pd.DataFrame:
     results = []
 
     # precompute matrix with internal default alignment settings if needed
@@ -96,7 +97,8 @@ def run_optimization_suite(sequences, algorithms: list[str], modes: list[str], n
             opt_clust = mode in ['clustering', 'joint']
             matrix = None if opt_align else standard_matrix
 
-            study = optuna.create_study(direction='minimize')
+            # seeded sampler: identical trial suggestions across runs for the same seed
+            study = optuna.create_study(direction='minimize', sampler=TPESampler(seed=seed))
             objective = create_unified_objective(sequences, algo, opt_align, opt_clust, matrix)
             study.optimize(objective, n_trials=n_trials)
 

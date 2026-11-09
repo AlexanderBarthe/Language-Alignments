@@ -181,9 +181,9 @@ class CLDFRepository:
         # apply sampling if no strict language filter was provided
         if sample_ratio < 1.0 and allowed_lang_ids is None:
             all_lang_ids = list(self._lang_id_to_name.keys())
-            random.seed(seed)
+            rng = random.Random(seed)
             num_to_keep = max(1, int(len(all_lang_ids) * sample_ratio))
-            allowed_lang_ids = set(random.sample(all_lang_ids, num_to_keep))
+            allowed_lang_ids = set(rng.sample(all_lang_ids, num_to_keep))
 
         results = []
 
@@ -227,7 +227,7 @@ class CLDFRepository:
             sampled_concepts: list[str] | None = None,
             max_size: int = 10000,
             usable_only: bool = True,
-            random_state: int = 101
+            random_state: int | str | None = None
     ) -> list[tuple[WordTuple, WordTuple]]:
 
         lang1_name = self._lang_id_to_name.get(lang1_id)
@@ -260,17 +260,20 @@ class CLDFRepository:
 
         pairs = [(map1[c], map2[c]) for c in common_concepts]
 
-        random.seed(random_state)
+        if random_state is None:
+            random_state = f"{lang1_id}::{lang2_id}"
+
+        rng = random.Random(random_state)
 
         if len(pairs) > max_size:
-            return random.sample(pairs, max_size)
+            return rng.sample(pairs, max_size)
 
         return pairs
 
     @staticmethod
     def get_noise_sample_for_language_pair(words_lang_a: list[WordTuple], words_lang_b: list[WordTuple],
                                            sample_size: int = 1000,
-                                           random_state: int = 101) -> list[tuple[WordTuple, WordTuple]]:
+                                           random_state: int | str | None = None) -> list[tuple[WordTuple, WordTuple]]:
         noise_pairs = []
         attempts = 0
         max_attempts = sample_size * 20
@@ -278,11 +281,14 @@ class CLDFRepository:
         if not words_lang_a or not words_lang_b:
             return []
 
-        random.seed(random_state)
+        if random_state is None:
+            random_state = f"{words_lang_a[0].language}::{words_lang_b[0].language}"
+
+        rng = random.Random(random_state)
 
         while len(noise_pairs) < sample_size and attempts < max_attempts:
-            word_a = random.choice(words_lang_a)
-            word_b = random.choice(words_lang_b)
+            word_a = rng.choice(words_lang_a)
+            word_b = rng.choice(words_lang_b)
 
             if word_a.concept != word_b.concept:
                 noise_pairs.append((word_a, word_b))
