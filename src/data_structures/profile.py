@@ -34,6 +34,9 @@ class Profile:
     def get_column(self, col_idx: int) -> ProfileColumn:
         return {lang: chars[col_idx] for lang, chars in self.rows.items()}
 
+    def get_columns(self) -> list[ProfileColumn]:
+        return [self.get_column(col_idx) for col_idx in range(self.width)]
+
     def append_column(self, chars: list[str]):
         if len(chars) != self.height:
             raise ValueError("token count must match profile height")

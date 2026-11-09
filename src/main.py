@@ -42,11 +42,11 @@ def main():
 
     return
 
-    profile, tree = language_tree.build(ds, "sky", True, False)
+    profiles, tree = language_tree.build(cldf, list("sky"), True, False)
 
     print(tree)
     print()
-    print(profile)
+    print(profiles)
 
 
 def find_best_match(word_from_lang1, all_words_from_lang2):

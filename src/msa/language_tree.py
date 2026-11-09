@@ -8,6 +8,7 @@ from config import CONFIG
 import cldf_repo
 from cldf_repo import CLDFRepository
 from clustering import neighbor_joining
+from config import CONFIG
 from data_structures.guide_tree import TreeNode
 from data_structures.models import WordForm
 from data_structures.profile import Profile
