@@ -166,7 +166,7 @@ def run_full_clust_learn_set (
 
     return results_df
 
-def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
+def test_tree_stability(cldf: CLDFRepository, print_tree: bool = False, trials: int = 500):
     lexstat_model = build_lexstat_matrices(cldf, True, True)
 
     lang_dist = build_language_distance_matrix(
@@ -174,6 +174,9 @@ def test_tree_stability(cldf: CLDFRepository, trials: int = 500):
     )
 
     reference_tree = neighbor_joining.build_tree_nj(lang_dist)
+
+    if print_tree:
+        print(reference_tree)
 
     bootstrap_results = []
     bootstrap_trees = []
